@@ -89,6 +89,7 @@ Start minimal. Add to this list when actually adopted — do NOT pre-list librar
 - **TanStack Query 5** — mobile owns its `QueryClient` with `AppState` focus listener + `NetInfo` online listener.
 - **Zustand** — mobile-local state only.
 - **expo-secure-store** — auth token persistence + theme preference (`light` / `dark` / `system`).
+- **expo-audio** — Voice tab microphone + playback.
 
 When upgrading any of these, update this list.
 
