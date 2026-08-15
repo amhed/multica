@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, View } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -40,6 +41,7 @@ import {
 import { useChatSessionRealtime } from "@/data/realtime/use-chat-session-realtime";
 import { invalidatePendingTask } from "@/data/realtime/chat-ws-updaters";
 import { useVoiceLastAgentStore } from "@/data/stores/voice-last-agent-store";
+import { useVoiceKeysStore } from "@/data/stores/voice-keys-store";
 import { useChatSend } from "@/lib/use-chat-send";
 import { canAssignAgent } from "@/lib/can-assign-agent";
 import { useWorkspaceAgentAvailability } from "@/lib/workspace-agent-availability";
@@ -49,6 +51,7 @@ import { resolveVoiceAgent } from "@/lib/voice/resolve-agent";
 import { latestSessionForAgent } from "@/lib/voice/latest-session";
 import { toSpeakableText } from "@/lib/voice/speakable-text";
 import {
+  mergeVoiceConfig,
   missingVoiceKeys,
   readVoiceClientConfig,
 } from "@/lib/voice/config";
@@ -74,7 +77,15 @@ export default function VoiceTab() {
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const userId = useAuthStore((s) => s.user?.id);
 
-  const voiceConfig = useMemo(() => readVoiceClientConfig(), []);
+  const storedKeys = useVoiceKeysStore((s) => s.keys);
+  const hydrateKeys = useVoiceKeysStore((s) => s.hydrate);
+  useEffect(() => {
+    void hydrateKeys();
+  }, [hydrateKeys]);
+  const voiceConfig = useMemo(
+    () => mergeVoiceConfig(storedKeys, readVoiceClientConfig()),
+    [storedKeys],
+  );
   const missingKeys = useMemo(
     () => missingVoiceKeys(voiceConfig),
     [voiceConfig],
@@ -270,6 +281,20 @@ export default function VoiceTab() {
     };
   }, [stopPlayer]);
 
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        stopPlayer();
+        expectSpeechRef.current = false;
+        holdStartedAtRef.current = null;
+        if (recorder.isRecording) {
+          void recorder.stop();
+        }
+        setPhase("idle");
+      };
+    }, [stopPlayer, recorder]),
+  );
+
   const handleHoldStart = useCallback(async () => {
     if (missingKeys.length > 0) return;
     const permission = await requestRecordingPermissionsAsync();
@@ -383,7 +408,7 @@ export default function VoiceTab() {
         }
       />
       {availability === "none" ? <NoAgentBanner /> : null}
-      {missingKeys.length > 0 ? <MissingKeysBanner keys={missingKeys} /> : null}
+      {missingKeys.length > 0 ? <MissingKeysBanner /> : null}
       <ChatMessageList
         messages={visibleMessages}
         loading={messagesLoading}
