@@ -19,7 +19,7 @@ Xcode signs the build with the "Personal Team" your Apple ID automatically owns 
 **If Xcode rejects signing with "No matching provisioning profiles found"** — rare, happens if someone has claimed the default bundle id `ai.multica.mobile` on Apple's developer portal. Pick any reverse-domain you own and re-run:
 
 ```bash
-export EXPO_BUNDLE_IDENTIFIER_PROD=com.yourname.multica
+export EXPO_BUNDLE_IDENTIFIER_PROD=com.carropana.multica
 pnpm ios:mobile:device:prod:release
 ```
 
@@ -29,19 +29,19 @@ Everything below is for app developers — you can ignore the rest if you only w
 
 ## Scripts
 
-| Command | What it does | Backend |
-|---|---|---|
-| `pnpm dev:mobile` | Metro only (reuse existing install) | local (`.env.development.local`) |
-| `pnpm dev:mobile:staging` | Metro only (reuse existing install) | staging (`.env.staging`) |
-| `pnpm dev:mobile:prod` | Metro only (reuse existing install) | production (`.env.production`) |
-| `pnpm ios:mobile` | Full rebuild + install on **iOS Simulator**, Debug | local |
-| `pnpm ios:mobile:staging` | Full rebuild + install on **iOS Simulator**, Debug | staging |
-| `pnpm ios:mobile:prod` | Full rebuild + install on **iOS Simulator**, Debug | production |
-| `pnpm ios:mobile:device` | Full rebuild + install on **USB iPhone**, Debug | local |
-| `pnpm ios:mobile:device:staging` | Full rebuild + install on **USB iPhone**, Debug | staging |
-| `pnpm ios:mobile:device:staging:release` | Full rebuild + install on **USB iPhone**, Release (standalone) | staging |
-| `pnpm ios:mobile:device:prod` | Full rebuild + install on **USB iPhone**, Debug | production |
-| `pnpm ios:mobile:device:prod:release` | Full rebuild + install on **USB iPhone**, Release (standalone) | production |
+| Command                                  | What it does                                                   | Backend                          |
+| ---------------------------------------- | -------------------------------------------------------------- | -------------------------------- |
+| `pnpm dev:mobile`                        | Metro only (reuse existing install)                            | local (`.env.development.local`) |
+| `pnpm dev:mobile:staging`                | Metro only (reuse existing install)                            | staging (`.env.staging`)         |
+| `pnpm dev:mobile:prod`                   | Metro only (reuse existing install)                            | production (`.env.production`)   |
+| `pnpm ios:mobile`                        | Full rebuild + install on **iOS Simulator**, Debug             | local                            |
+| `pnpm ios:mobile:staging`                | Full rebuild + install on **iOS Simulator**, Debug             | staging                          |
+| `pnpm ios:mobile:prod`                   | Full rebuild + install on **iOS Simulator**, Debug             | production                       |
+| `pnpm ios:mobile:device`                 | Full rebuild + install on **USB iPhone**, Debug                | local                            |
+| `pnpm ios:mobile:device:staging`         | Full rebuild + install on **USB iPhone**, Debug                | staging                          |
+| `pnpm ios:mobile:device:staging:release` | Full rebuild + install on **USB iPhone**, Release (standalone) | staging                          |
+| `pnpm ios:mobile:device:prod`            | Full rebuild + install on **USB iPhone**, Debug                | production                       |
+| `pnpm ios:mobile:device:prod:release`    | Full rebuild + install on **USB iPhone**, Release (standalone) | production                       |
 
 `dev:*` runs Metro only — assumes the matching variant is already installed. `ios:mobile*` does a full native rebuild + install.
 

@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     name: isProd
-      ? "Multica"
+      ? "SeguroHQ Multica"
       : isStaging
         ? "Multica (Staging)"
         : "Multica (Dev)",
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     // 1024x1024 source shared with the desktop client
     // (apps/desktop/build/icon.png). Expo prebuild generates every required
     // iOS icon size from this single PNG.
-    icon: "./assets/icon.png",
+    icon: "./assets/icon-blue.png",
     ios: {
       supportsTablet: false,
       // Per-variant bundle id overrides exist for one reason: an Apple ID
