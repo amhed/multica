@@ -33,6 +33,7 @@ export async function synthesizeSpeech(
         body: JSON.stringify({
           text,
           model_id: FLASH_MODEL,
+          apply_text_normalization: "on",
         }),
         signal: controller.signal,
       },

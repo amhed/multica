@@ -10,6 +10,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, View } from "react-native";
+import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
+  useAudioRecorderState,
   RecordingPresets,
   type AudioPlayer,
 } from "expo-audio";
@@ -48,8 +50,15 @@ import { useWorkspaceAgentAvailability } from "@/lib/workspace-agent-availabilit
 import { useAgentPresence } from "@/lib/use-agent-presence";
 import { isAgentRuntimeBound } from "@/lib/is-agent-runtime-bound";
 import { resolveVoiceAgent } from "@/lib/voice/resolve-agent";
-import { latestSessionForAgent } from "@/lib/voice/latest-session";
-import { toSpeakableText } from "@/lib/voice/speakable-text";
+import {
+  latestSessionForAgent,
+  resolveBoundSessionId,
+} from "@/lib/voice/latest-session";
+import {
+  toSpeakableText,
+  withVoiceReplyInstruction,
+} from "@/lib/voice/speakable-text";
+import { normalizeMetering } from "@/lib/voice/metering";
 import {
   mergeVoiceConfig,
   missingVoiceKeys,
@@ -65,8 +74,10 @@ import { NoAgentBanner } from "@/components/chat/no-agent-banner";
 import { OfflineBanner } from "@/components/chat/offline-banner";
 import { RuntimeRequiredBanner } from "@/components/chat/runtime-required-banner";
 import { VoiceAgentButton } from "@/components/voice/voice-agent-button";
+import { VoiceHeaderActions } from "@/components/voice/voice-header-actions";
 import { VoiceMicButton } from "@/components/voice/voice-mic-button";
 import { VoiceStatusLabel } from "@/components/voice/voice-status-label";
+import { VoiceWaveform } from "@/components/voice/voice-waveform";
 import { MissingKeysBanner } from "@/components/voice/missing-keys-banner";
 
 const MIN_HOLD_MS = 400;
@@ -75,13 +86,16 @@ export default function VoiceTab() {
   const qc = useQueryClient();
   const insets = useSafeAreaInsets();
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
   const userId = useAuthStore((s) => s.user?.id);
 
   const storedKeys = useVoiceKeysStore((s) => s.keys);
   const hydrateKeys = useVoiceKeysStore((s) => s.hydrate);
-  useEffect(() => {
-    void hydrateKeys();
-  }, [hydrateKeys]);
+  useFocusEffect(
+    useCallback(() => {
+      void hydrateKeys();
+    }, [hydrateKeys]),
+  );
   const voiceConfig = useMemo(
     () => mergeVoiceConfig(storedKeys, readVoiceClientConfig()),
     [storedKeys],
@@ -94,9 +108,15 @@ export default function VoiceTab() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
+  const [startFresh, setStartFresh] = useState(false);
   const [phase, setPhase] = useState<VoicePhase>("idle");
 
-  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useAudioRecorder({
+    ...RecordingPresets.HIGH_QUALITY,
+    isMeteringEnabled: true,
+  });
+  const recorderState = useAudioRecorderState(recorder, 80);
+  const liveLevel = normalizeMetering(recorderState.metering);
   const playerRef = useRef<AudioPlayer | null>(null);
   const holdStartedAtRef = useRef<number | null>(null);
   const expectSpeechRef = useRef(false);
@@ -139,21 +159,18 @@ export default function VoiceTab() {
   }, [hydratedLastAgent, selectedAgentId, storedAgentId, availableAgents]);
 
   // Bind the voice surface to this agent's latest active session so a
-  // spoken turn continues the same thread Chat / web would show.
+  // spoken turn continues the same thread Chat / web would show — unless
+  // the user tapped +, which must stay on a blank / just-created session.
   useEffect(() => {
-    if (!currentAgent) {
-      setActiveSessionId(null);
-      return;
-    }
-    const latest = latestSessionForAgent(sessions, currentAgent.id);
-    setActiveSessionId((current) => {
-      if (latest) return latest.id;
-      if (!current) return null;
-      const known = sessions.find((session) => session.id === current);
-      if (!known) return current;
-      return known.agent_id === currentAgent.id ? current : null;
-    });
-  }, [currentAgent, sessions]);
+    setActiveSessionId((current) =>
+      resolveBoundSessionId({
+        agentId: currentAgent?.id ?? null,
+        sessions,
+        currentSessionId: current,
+        startFresh,
+      }),
+    );
+  }, [currentAgent, sessions, startFresh]);
 
   const { data: messages = [], isLoading: messagesLoading } = useQuery(
     chatMessagesOptions(activeSessionId),
@@ -359,7 +376,7 @@ export default function VoiceTab() {
       if (wsId) persistLastAgent(wsId, currentAgent.id);
       expectSpeechRef.current = true;
       setPhase("thinking");
-      await send(text, [], { clearDraft: false });
+      await send(withVoiceReplyInstruction(text), [], { clearDraft: false });
     } catch (err) {
       expectSpeechRef.current = false;
       setPhase("error");
@@ -375,11 +392,35 @@ export default function VoiceTab() {
     (agent: Agent) => {
       setSelectedAgentId(agent.id);
       if (wsId) persistLastAgent(wsId, agent.id);
+      // + then pick: stay on a blank session for the chosen agent.
+      // Picking after a conversation is underway resumes that agent's latest.
+      if (startFresh && !activeSessionId) {
+        setActiveSessionId(null);
+        return;
+      }
+      setStartFresh(false);
       const latest = latestSessionForAgent(sessions, agent.id);
       setActiveSessionId(latest?.id ?? null);
     },
-    [wsId, persistLastAgent, sessions],
+    [wsId, persistLastAgent, sessions, startFresh, activeSessionId],
   );
+
+  const handleNewConversation = useCallback(() => {
+    stopPlayer();
+    expectSpeechRef.current = false;
+    spokenMessageIdRef.current = null;
+    setPhase("idle");
+    setStartFresh(true);
+    setActiveSessionId(null);
+    if (availableAgents.length > 1) {
+      setAgentPickerOpen(true);
+    }
+  }, [stopPlayer, availableAgents.length]);
+
+  const handleOpenSettings = useCallback(() => {
+    if (!wsSlug) return;
+    router.push(`/${wsSlug}/more/settings/voice`);
+  }, [wsSlug]);
 
   const disabled =
     !currentAgent ||
@@ -406,6 +447,12 @@ export default function VoiceTab() {
             onPress={() => setAgentPickerOpen(true)}
           />
         }
+        right={
+          <VoiceHeaderActions
+            onSettingsPress={handleOpenSettings}
+            onNewPress={handleNewConversation}
+          />
+        }
       />
       {availability === "none" ? <NoAgentBanner /> : null}
       {missingKeys.length > 0 ? <MissingKeysBanner /> : null}
@@ -419,7 +466,9 @@ export default function VoiceTab() {
           if (currentAgent && wsId) persistLastAgent(wsId, currentAgent.id);
           expectSpeechRef.current = true;
           setPhase("thinking");
-          void send(text, [], { clearDraft: false }).catch((err: unknown) => {
+          void send(withVoiceReplyInstruction(text), [], {
+            clearDraft: false,
+          }).catch((err: unknown) => {
             expectSpeechRef.current = false;
             setPhase("idle");
             Alert.alert(
@@ -432,7 +481,9 @@ export default function VoiceTab() {
           if (currentAgent && wsId) persistLastAgent(wsId, currentAgent.id);
           expectSpeechRef.current = true;
           setPhase("thinking");
-          return send(action.prompt, [], { clearDraft: false });
+          return send(withVoiceReplyInstruction(action.prompt), [], {
+            clearDraft: false,
+          });
         }}
         quickActionsDisabled={!!pendingTask?.task_id || disabled}
         pendingTask={pendingTask}
@@ -448,6 +499,10 @@ export default function VoiceTab() {
         <RuntimeRequiredBanner agentName={currentAgent.name} />
       ) : null}
       <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
+        <VoiceWaveform
+          active={phase === "listening" || phase === "transcribing"}
+          level={phase === "listening" ? liveLevel : undefined}
+        />
         <VoiceStatusLabel phase={phase} disabledReason={disabledReason} />
         <VoiceMicButton
           phase={phase}

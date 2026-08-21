@@ -125,7 +125,7 @@ export default function SettingsPage() {
           onPress={goVoice}
           chevronColor={mutedFg}
           title="Voice"
-          subtitle="Whisper and ElevenLabs keys"
+          subtitle="API keys and voice ID"
         />
       </SectionGroup>
 

@@ -26,3 +26,34 @@ export function latestSessionForAgent(
   }
   return latest;
 }
+
+/**
+ * Which session the Voice tab should show.
+ *
+ * Default continues the agent's latest thread (same as Chat / web).
+ * After +, `startFresh` keeps a blank session — and once send creates
+ * one, we stay on that id instead of snapping back to the older latest.
+ */
+export function resolveBoundSessionId(args: {
+  agentId: string | null;
+  sessions: ChatSession[];
+  currentSessionId: string | null;
+  startFresh: boolean;
+}): string | null {
+  const { agentId, sessions, currentSessionId, startFresh } = args;
+  if (!agentId) return null;
+
+  if (startFresh) {
+    if (!currentSessionId) return null;
+    const known = sessions.find((session) => session.id === currentSessionId);
+    if (!known) return currentSessionId;
+    return known.agent_id === agentId ? currentSessionId : null;
+  }
+
+  const latest = latestSessionForAgent(sessions, agentId);
+  if (latest) return latest.id;
+  if (!currentSessionId) return null;
+  const known = sessions.find((session) => session.id === currentSessionId);
+  if (!known) return currentSessionId;
+  return known.agent_id === agentId ? currentSessionId : null;
+}

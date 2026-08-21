@@ -8,7 +8,11 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { useVoiceKeysStore } from "@/data/stores/voice-keys-store";
-import { DEFAULT_ELEVENLABS_VOICE_ID } from "@/lib/voice/config";
+import {
+  DEFAULT_ELEVENLABS_VOICE_ID,
+  mergeVoiceConfig,
+  readVoiceClientConfig,
+} from "@/lib/voice/config";
 
 export default function VoiceSettingsScreen() {
   const keys = useVoiceKeysStore((s) => s.keys);
@@ -27,9 +31,10 @@ export default function VoiceSettingsScreen() {
 
   useEffect(() => {
     if (!hydrated) return;
+    const effective = mergeVoiceConfig(keys, readVoiceClientConfig());
     setOpenaiApiKey(keys.openaiApiKey);
     setElevenLabsApiKey(keys.elevenLabsApiKey);
-    setElevenLabsVoiceId(keys.elevenLabsVoiceId);
+    setElevenLabsVoiceId(effective.elevenLabsVoiceId);
   }, [hydrated, keys]);
 
   const handleSave = async () => {
@@ -105,7 +110,8 @@ export default function VoiceSettingsScreen() {
             autoComplete="off"
           />
           <Text className="text-xs text-muted-foreground mt-1.5">
-            Leave blank to use the default Rachel voice.
+            The ElevenLabs voice the agent speaks with. Paste any voice ID
+            from your ElevenLabs library.
           </Text>
         </View>
       </View>

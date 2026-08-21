@@ -4,8 +4,8 @@ export interface VoiceClientConfig {
   elevenLabsVoiceId: string;
 }
 
-/** ElevenLabs premade "Rachel" — used when the user hasn't picked a voice. */
-export const DEFAULT_ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM";
+/** Default ElevenLabs voice when the user hasn't picked one in Settings. */
+export const DEFAULT_ELEVENLABS_VOICE_ID = "wBXNqKUATyqu0RtYt25i";
 
 const KEY_LABELS = {
   openaiApiKey: "EXPO_PUBLIC_OPENAI_API_KEY",
