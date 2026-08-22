@@ -9,6 +9,7 @@
  * Subscreens push under more/settings/:
  *   - more/settings/profile        — edit name + avatar
  *   - more/settings/notifications  — per-group inbox + system toggles
+ *   - more/settings/voice          — on-device Whisper / ElevenLabs keys
  *
  * Theme picker stays inline (3 fixed options, fits in one section).
  */
@@ -86,6 +87,7 @@ export default function SettingsPage() {
   const goProfile = () => router.push(`/${currentSlug}/more/settings/profile`);
   const goNotifications = () =>
     router.push(`/${currentSlug}/more/settings/notifications`);
+  const goVoice = () => router.push(`/${currentSlug}/more/settings/voice`);
 
   return (
     <ScrollView
@@ -117,6 +119,13 @@ export default function SettingsPage() {
           chevronColor={mutedFg}
           title="Notifications"
           subtitle="Inbox and system alerts"
+        />
+        <Separator />
+        <NavRow
+          onPress={goVoice}
+          chevronColor={mutedFg}
+          title="Voice"
+          subtitle="API keys and voice ID"
         />
       </SectionGroup>
 

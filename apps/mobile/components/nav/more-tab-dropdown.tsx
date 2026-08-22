@@ -6,7 +6,7 @@
  * parity with Inbox / My Issues / Chat).
  *
  * The wrapper View is absolute-positioned over the More tab's screen
- * rect (right 25%, bottom = safe-area, height = tab bar). It uses
+ * rect (right 20% for five tabs, bottom = safe-area, height = tab bar). It uses
  * `pointerEvents="box-none"` so taps pass through to the real tab
  * button underneath; we open the dropdown imperatively from the tab's
  * `listeners.tabPress` via the exposed `TriggerRef.open()`. The
@@ -105,7 +105,7 @@ export function MoreTabDropdownAnchor({
         position: "absolute",
         right: 0,
         bottom: insets.bottom,
-        width: "25%",
+        width: "20%",
         height: TAB_BAR_HEIGHT,
       }}
     >

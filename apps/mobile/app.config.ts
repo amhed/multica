@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     name: isProd
-      ? "Multica"
+      ? "SeguroHQ Multica"
       : isStaging
         ? "Multica (Staging)"
         : "Multica (Dev)",
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     // 1024x1024 source shared with the desktop client
     // (apps/desktop/build/icon.png). Expo prebuild generates every required
     // iOS icon size from this single PNG.
-    icon: "./assets/icon.png",
+    icon: "./assets/icon-blue.png",
     ios: {
       supportsTablet: false,
       // Pins DEVELOPMENT_TEAM on every prebuild. Leaving it unset is the normal
@@ -61,6 +61,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins: [
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          microphonePermission:
+            "Allow Multica to use the microphone for voice conversations with agents.",
+          enableBackgroundPlayback: false,
+        },
+      ],
       "@react-native-community/datetimepicker",
       "react-native-enriched-markdown",
       [
