@@ -19,6 +19,12 @@
     "copy_identifier": "識別子をコピー ({{identifier}})",
     "fold_all_comments": "すべてのコメントを折りたたむ",
     "unfold_all_comments": "すべてのコメントを展開",
+    "mark_as_todo": "未着手にする",
+    "mark_as_in_progress": "進行中にする",
+    "mark_as_in_review": "レビュー中にする",
+    "mark_as_done": "完了にする",
+    "mark_as_blocked": "ブロック中にする",
+    "mark_as_cancelled": "キャンセル済みにする",
     "switch_to_light": "ライトテーマに切り替え",
     "switch_to_dark": "ダークテーマに切り替え",
     "use_system_theme": "システムテーマを使用"

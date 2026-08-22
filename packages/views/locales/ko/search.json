@@ -19,6 +19,12 @@
     "copy_identifier": "식별자 복사 ({{identifier}})",
     "fold_all_comments": "모든 댓글 접기",
     "unfold_all_comments": "모든 댓글 펼치기",
+    "mark_as_todo": "할 일로 표시",
+    "mark_as_in_progress": "진행 중으로 표시",
+    "mark_as_in_review": "리뷰 중으로 표시",
+    "mark_as_done": "완료로 표시",
+    "mark_as_blocked": "막힘으로 표시",
+    "mark_as_cancelled": "취소됨으로 표시",
     "switch_to_light": "라이트 테마로 전환",
     "switch_to_dark": "다크 테마로 전환",
     "use_system_theme": "시스템 테마 사용"

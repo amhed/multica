@@ -19,6 +19,12 @@
     "copy_identifier": "复制标识符 ({{identifier}})",
     "fold_all_comments": "收起全部评论",
     "unfold_all_comments": "展开全部评论",
+    "mark_as_todo": "标记为待办",
+    "mark_as_in_progress": "标记为进行中",
+    "mark_as_in_review": "标记为审核中",
+    "mark_as_done": "标记为已完成",
+    "mark_as_blocked": "标记为已阻塞",
+    "mark_as_cancelled": "标记为已取消",
     "switch_to_light": "切换到浅色主题",
     "switch_to_dark": "切换到深色主题",
     "use_system_theme": "跟随系统主题"

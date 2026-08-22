@@ -55,6 +55,8 @@ const {
   mockCommentExpandAll,
   mockResolvedCollapseAll,
   mockResolvedExpandAll,
+  mockUpdateIssueMutate,
+  mockInCategory,
 } = vi.hoisted(() => ({
   mockPush: vi.fn(),
   mockSearchIssues: vi.fn(),
@@ -99,6 +101,12 @@ const {
   mockCommentExpandAll: vi.fn(),
   mockResolvedCollapseAll: vi.fn(),
   mockResolvedExpandAll: vi.fn(),
+  mockUpdateIssueMutate: vi.fn(),
+  // Resolves a category to the workspace's active statuses in it. Empty by
+  // default so a category falls back to its built-in key, the common case.
+  mockInCategory: {
+    current: (_category: string) => [] as Array<{ key: string }>,
+  },
 }));
 
 vi.mock("@multica/core/api", () => ({
@@ -216,6 +224,16 @@ vi.mock("@multica/core/modals", () => ({
   }),
 }));
 
+vi.mock("@multica/core/issues/mutations", () => ({
+  useUpdateIssue: () => ({ mutate: mockUpdateIssueMutate }),
+}));
+
+vi.mock("@multica/core/issue-statuses/hooks", () => ({
+  useIssueStatuses: () => ({
+    inCategory: (category: string) => mockInCategory.current(category),
+  }),
+}));
+
 function resolveIssue(key: readonly unknown[]) {
   // issueDetailOptions key shape: ["issues", wsId, "detail", id]
   if (key[0] === "issues" && key[2] === "detail") {
@@ -295,6 +313,8 @@ describe("SearchCommand", () => {
     mockCommentExpandAll.mockReset();
     mockResolvedCollapseAll.mockReset();
     mockResolvedExpandAll.mockReset();
+    mockUpdateIssueMutate.mockReset();
+    mockInCategory.current = () => [];
 
     // cmdk calls scrollIntoView on the first selected item, which jsdom doesn't implement
     Element.prototype.scrollIntoView = vi.fn();
@@ -700,6 +720,83 @@ describe("SearchCommand", () => {
     expect(mockResolvedExpandAll).toHaveBeenCalledWith("issue-1", ["root-2", "root-3"]);
     expect(mockCommentCollapseAll).not.toHaveBeenCalled();
     expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  it("offers status commands on an issue detail route, hiding the issue's current status", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "mark");
+
+    expect(
+      await screen.findByText(
+        (_, el) => el?.textContent === "Mark as Done" && el?.tagName === "SPAN",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText((_, el) => el?.textContent === "Mark as In Progress" && el?.tagName === "SPAN"),
+    ).toBeInTheDocument();
+    // The issue is already Todo, so offering "Mark as Todo" would be a no-op.
+    expect(screen.queryByText("Mark as Todo")).not.toBeInTheDocument();
+  });
+
+  it("marks the current issue with the built-in status key for the category", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "done");
+
+    const doneItem = await screen.findByText(
+      (_, el) => el?.textContent === "Mark as Done" && el?.tagName === "SPAN",
+    );
+    await user.click(doneItem);
+
+    expect(mockUpdateIssueMutate).toHaveBeenCalledWith({ id: "issue-1", status: "done" });
+    expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  it("resolves a category to the workspace's first active custom status in it", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    // A workspace whose "done" category is a custom status, not the built-in.
+    mockInCategory.current = (category) =>
+      category === "done" ? [{ key: "shipped" }] : [];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "done");
+
+    const doneItem = await screen.findByText(
+      (_, el) => el?.textContent === "Mark as Done" && el?.tagName === "SPAN",
+    );
+    await user.click(doneItem);
+
+    expect(mockUpdateIssueMutate).toHaveBeenCalledWith({ id: "issue-1", status: "shipped" });
+  });
+
+  it("does not offer status commands off an issue detail route", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues";
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "mark");
+
+    expect(screen.queryByText("Mark as Done")).not.toBeInTheDocument();
+    expect(screen.queryByText("Mark as Todo")).not.toBeInTheDocument();
   });
 
   it("filters theme commands by query keywords", async () => {

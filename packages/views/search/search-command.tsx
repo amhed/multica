@@ -1,6 +1,6 @@
 "use client";
 
-import { issueStatusCategory } from "@multica/core/issues";
+import { issueBehavesAs, issueStatusCategory } from "@multica/core/issues";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
@@ -23,6 +23,7 @@ import { Command as CommandPrimitive } from "cmdk";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type {
+  IssueStatusCategory,
   MemberWithUser,
   SearchIssueResult,
   SearchProjectResult,
@@ -37,6 +38,8 @@ import {
   useResolvedExpandStore,
 } from "@multica/core/issues/stores";
 import { issueDetailOptions, issueTimelineOptions } from "@multica/core/issues/queries";
+import { useUpdateIssue } from "@multica/core/issues/mutations";
+import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
 import { useWorkspaceId } from "@multica/core";
 import { useWorkspacePaths, WORKSPACE_PAGES } from "@multica/core/paths";
 import type { WorkspacePageKey, WorkspacePaths } from "@multica/core/paths";
@@ -276,11 +279,31 @@ function IssueResultRow({
 interface CommandItem {
   key: string;
   label: string;
-  icon: LucideIcon;
+  /** A lucide icon, or a custom node via `iconNode` (e.g. a StatusIcon). */
+  icon?: LucideIcon;
+  iconNode?: React.ReactNode;
   keywords: string[];
   trailing?: React.ReactNode;
   onSelect: () => void;
 }
+
+// The status changes offered on an issue detail page, in workflow order.
+// `backlog` is intentionally omitted — it is not an action a user reaches for
+// from the palette. Each category resolves to a concrete status KEY at command
+// time via the workspace catalog, so custom statuses are honoured. (MUL-6243)
+type StatusCommandCategory = Exclude<IssueStatusCategory, "backlog">;
+
+const STATUS_COMMAND_ORDER: Array<{
+  category: StatusCommandCategory;
+  keywords: string[];
+}> = [
+  { category: "todo", keywords: ["todo", "reopen"] },
+  { category: "in_progress", keywords: ["progress", "start", "wip", "doing"] },
+  { category: "in_review", keywords: ["review", "reviewing"] },
+  { category: "done", keywords: ["done", "complete", "finish", "close", "resolve"] },
+  { category: "blocked", keywords: ["blocked", "block", "stuck"] },
+  { category: "cancelled", keywords: ["cancel", "cancelled", "canceled", "wontfix", "abandon"] },
+];
 
 interface SearchResults {
   /**
@@ -340,6 +363,8 @@ export function SearchCommand() {
     return intent;
   }, []);
   const wsId = useWorkspaceId();
+  const { mutate: updateIssue } = useUpdateIssue();
+  const statusCatalog = useIssueStatuses(wsId);
   const recentItems = useRecentIssuesStore(selectRecentIssues(wsId));
   const p: WorkspacePaths = useWorkspacePaths();
   const { theme, setTheme } = useTheme();
@@ -488,6 +513,35 @@ export function SearchCommand() {
           },
         },
       );
+
+      // Status changes for the issue on screen. The category the issue already
+      // behaves as is skipped — offering it would be a no-op — and each
+      // remaining category resolves to a concrete status KEY via the catalog so
+      // a workspace's custom statuses are honoured. (MUL-6243)
+      const statusCommandLabels: Record<StatusCommandCategory, string> = {
+        todo: t(($) => $.commands.mark_as_todo),
+        in_progress: t(($) => $.commands.mark_as_in_progress),
+        in_review: t(($) => $.commands.mark_as_in_review),
+        done: t(($) => $.commands.mark_as_done),
+        blocked: t(($) => $.commands.mark_as_blocked),
+        cancelled: t(($) => $.commands.mark_as_cancelled),
+      };
+      for (const { category, keywords } of STATUS_COMMAND_ORDER) {
+        if (issueBehavesAs(currentIssue, category)) continue;
+        const statusKey = statusCatalog.inCategory(category)[0]?.key ?? category;
+        items.push({
+          key: `mark-as-${category}`,
+          label: statusCommandLabels[category],
+          iconNode: (
+            <StatusIcon status={category} category={category} className="size-4 shrink-0" />
+          ),
+          keywords: ["mark", "status", ...keywords],
+          onSelect: () => {
+            updateIssue({ id: currentIssueId, status: statusKey });
+            setOpen(false);
+          },
+        });
+      }
     }
 
     items.push(
@@ -527,7 +581,7 @@ export function SearchCommand() {
     );
 
     return items;
-  }, [currentIssue, currentIssueId, getShareableUrl, pathname, queryClient, setOpen, setTheme, theme, t]);
+  }, [currentIssue, currentIssueId, getShareableUrl, pathname, queryClient, setOpen, setTheme, statusCatalog, theme, t, updateIssue]);
 
   const filteredCommands = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -786,7 +840,9 @@ export function SearchCommand() {
                     onSelect={cmd.onSelect}
                     className="flex cursor-default select-none items-center gap-2.5 rounded-lg px-3 py-2.5 text-body outline-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 data-selected:bg-accent"
                   >
-                    <cmd.icon className="size-4 shrink-0 text-muted-foreground" />
+                    {cmd.iconNode ?? (cmd.icon ? (
+                      <cmd.icon className="size-4 shrink-0 text-muted-foreground" />
+                    ) : null)}
                     <span className="truncate">
                       <HighlightText text={cmd.label} query={query} />
                     </span>

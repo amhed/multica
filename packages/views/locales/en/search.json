@@ -19,6 +19,12 @@
     "copy_identifier": "Copy Identifier ({{identifier}})",
     "fold_all_comments": "Fold All Comments",
     "unfold_all_comments": "Unfold All Comments",
+    "mark_as_todo": "Mark as Todo",
+    "mark_as_in_progress": "Mark as In Progress",
+    "mark_as_in_review": "Mark as In Review",
+    "mark_as_done": "Mark as Done",
+    "mark_as_blocked": "Mark as Blocked",
+    "mark_as_cancelled": "Mark as Cancelled",
     "switch_to_light": "Switch to Light Theme",
     "switch_to_dark": "Switch to Dark Theme",
     "use_system_theme": "Use System Theme"
