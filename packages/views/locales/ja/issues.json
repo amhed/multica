@@ -356,6 +356,7 @@
       "hint_close": "閉じる"
     },
     "sidebar_tooltip": "右サイドバーの開閉",
+    "scroll_to_top": "トップへ戻る",
     "find": {
       "placeholder": "タスク内を検索...",
       "count": "{{current}}/{{total}}",

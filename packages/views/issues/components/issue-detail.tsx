@@ -134,6 +134,7 @@ import { PAGE_GUTTER } from "../../layout/page-header";
 import { ProgressRing } from "./progress-ring";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
 import { useT } from "../../i18n";
+import { ScrollToTopButton } from "./scroll-to-top-button";
 import { useIssueDetailScrollRestore } from "../hooks/use-issue-detail-scroll-restore";
 import { useInPageFind } from "../hooks/use-in-page-find";
 import { useStickyComposer } from "../hooks/use-sticky-composer";
@@ -2859,6 +2860,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
           data-tab-scroll-root={scrollContainerKey}
           className="relative flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
         >
+        <ScrollToTopButton container={scrollContainerEl} />
         {/* Gutters: 32px is a comfortable reading margin on a desktop column
             but eats 16% of a 393px phone, so below `md` they drop to 12px.
             `max-md:pb-chat-launcher` reserves the launcher's corner at the end

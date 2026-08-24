@@ -361,6 +361,7 @@
       "hint_close": "close"
     },
     "sidebar_tooltip": "Toggle right sidebar",
+    "scroll_to_top": "Scroll to top",
     "find": {
       "placeholder": "Find in issue...",
       "count": "{{current}}/{{total}}",
