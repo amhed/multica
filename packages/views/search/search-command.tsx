@@ -341,7 +341,7 @@ export function SearchCommand() {
       })),
     [tNav],
   );
-  const { pathname, getShareableUrl } = useNavigation();
+  const { pathname, searchParams, getShareableUrl } = useNavigation();
   const intentNavigate = useIntentNavigate();
   const open = useSearchStore((s) => s.open);
   const setOpen = useSearchStore((s) => s.setOpen);
@@ -400,13 +400,16 @@ export function SearchCommand() {
     return navPages.filter((page) => matchesRow(page.label, page.keywords, q));
   }, [navPages, query]);
 
-  // Detect if current route is an issue detail page — /{slug}/issues/{id}.
-  // Falls back to null on any other route; used to gate issue-specific commands.
+  // Detect the issue in focus: an issue detail page (/{slug}/issues/{id}) or
+  // the issue open in the inbox split pane (/{slug}/inbox?issue={id}).
+  // Falls back to null elsewhere; used to gate issue-specific commands.
   const currentIssueId = useMemo(() => {
     const match = pathname.match(/\/issues\/([^/]+)$/);
     const raw = match?.[1];
-    return raw ? decodeURIComponent(raw) : null;
-  }, [pathname]);
+    if (raw) return decodeURIComponent(raw);
+    if (/\/inbox$/.test(pathname)) return searchParams.get("issue") || null;
+    return null;
+  }, [pathname, searchParams]);
   const { data: currentIssue = null } = useQuery({
     ...issueDetailOptions(wsId, currentIssueId ?? ""),
     enabled: !!currentIssueId,

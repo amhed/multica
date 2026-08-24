@@ -43,6 +43,7 @@ const {
   mockSetTheme,
   mockTheme,
   mockPathname,
+  mockSearchParams,
   mockGetShareableUrl,
   mockMembers,
   mockAgents,
@@ -66,6 +67,7 @@ const {
   mockSetTheme: vi.fn(),
   mockTheme: { current: "system" as "light" | "dark" | "system" },
   mockPathname: { current: "/ws-test/issues" as string },
+  mockSearchParams: { current: new URLSearchParams() },
   mockGetShareableUrl: vi.fn((p: string) => `https://app.multica/${p}`),
   mockMembers: {
     current: [] as Array<{
@@ -275,6 +277,7 @@ vi.mock("../navigation/context", () => {
   const adapter = () => ({
     push: mockPush,
     pathname: mockPathname.current,
+    searchParams: mockSearchParams.current,
     getShareableUrl: mockGetShareableUrl,
   });
   return {
@@ -303,6 +306,7 @@ describe("SearchCommand", () => {
     mockSetTheme.mockReset();
     mockTheme.current = "system";
     mockPathname.current = "/ws-test/issues";
+    mockSearchParams.current = new URLSearchParams();
     mockGetShareableUrl.mockReset().mockImplementation((p: string) => `https://app.multica/${p}`);
     mockMembers.current = [];
     mockOpenModal.mockReset();
@@ -785,6 +789,38 @@ describe("SearchCommand", () => {
     await user.click(doneItem);
 
     expect(mockUpdateIssueMutate).toHaveBeenCalledWith({ id: "issue-1", status: "shipped" });
+  });
+
+  it("offers status commands for the issue open in the inbox split pane", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/inbox";
+    mockSearchParams.current = new URLSearchParams("issue=issue-1");
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "done");
+
+    const doneItem = await screen.findByText(
+      (_, el) => el?.textContent === "Mark as Done" && el?.tagName === "SPAN",
+    );
+    await user.click(doneItem);
+
+    expect(mockUpdateIssueMutate).toHaveBeenCalledWith({ id: "issue-1", status: "done" });
+    expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  it("does not offer status commands on the inbox without an open issue", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/inbox";
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "mark");
+
+    expect(screen.queryByText("Mark as Done")).not.toBeInTheDocument();
   });
 
   it("does not offer status commands off an issue detail route", async () => {
