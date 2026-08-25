@@ -25,6 +25,7 @@
     "mark_as_done": "完了にする",
     "mark_as_blocked": "ブロック中にする",
     "mark_as_cancelled": "キャンセル済みにする",
+    "assign_to_agent": "{{name}} に割り当て",
     "switch_to_light": "ライトテーマに切り替え",
     "switch_to_dark": "ダークテーマに切り替え",
     "use_system_theme": "システムテーマを使用"

@@ -86,6 +86,12 @@ const {
       id: string;
       name: string;
       avatar_url: string | null;
+      owner_id?: string | null;
+      permission_mode?: string;
+      invocation_targets?: Array<{ target_type: string; target_id: string | null }>;
+      runtime_id?: string;
+      runtime_bound?: boolean;
+      archived_at?: string | null;
     }>,
   },
   mockSquads: {
@@ -224,6 +230,13 @@ vi.mock("@multica/core/modals", () => ({
   useModalStore: Object.assign(vi.fn(), {
     getState: () => ({ open: mockOpenModal }),
   }),
+}));
+
+vi.mock("@multica/core/auth", () => ({
+  useAuthStore: Object.assign(
+    (selector: (s: { user: { id: string } }) => unknown) => selector({ user: { id: "user-1" } }),
+    { getState: () => ({ user: { id: "user-1" } }) },
+  ),
 }));
 
 vi.mock("@multica/core/issues/mutations", () => ({
@@ -747,6 +760,95 @@ describe("SearchCommand", () => {
     ).toBeInTheDocument();
     // The issue is already Todo, so offering "Mark as Todo" would be a no-op.
     expect(screen.queryByText("Mark as Todo")).not.toBeInTheDocument();
+  });
+
+  // Agent assignment commands mirror the Mark-as-status commands: one per
+  // assignable agent, gated on the issue in focus (detail page or inbox pane).
+  const assignableAgent = {
+    id: "agent-1",
+    name: "Reviewer Bot",
+    avatar_url: null,
+    owner_id: "user-1",
+    runtime_id: "rt-1",
+    archived_at: null,
+  };
+
+  it("offers an Assign-to command per assignable agent on an issue detail route", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    mockAgents.current = [
+      assignableAgent,
+      // Unbound runtime: cannot run work, so it is not offered.
+      { ...assignableAgent, id: "agent-2", name: "Idle Bot", runtime_id: "" },
+      // Archived agents are hidden, as in the assignee picker.
+      { ...assignableAgent, id: "agent-3", name: "Old Bot", archived_at: "2026-01-01T00:00:00Z" },
+    ];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "assign");
+
+    const item = await screen.findByText(
+      (_, el) => el?.textContent === "Assign to Reviewer Bot" && el?.tagName === "SPAN",
+    );
+    expect(screen.queryByText("Assign to Idle Bot")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assign to Old Bot")).not.toBeInTheDocument();
+
+    await user.click(item);
+    expect(mockUpdateIssueMutate).toHaveBeenCalledWith({
+      id: "issue-1",
+      assignee_type: "agent",
+      assignee_id: "agent-1",
+    });
+    expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  it("offers Assign-to commands for the issue open in the inbox split pane", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/inbox";
+    mockSearchParams.current = new URLSearchParams("issue=issue-1");
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    mockAgents.current = [assignableAgent];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "reviewer");
+
+    expect(
+      await screen.findByText(
+        (_, el) => el?.textContent === "Assign to Reviewer Bot" && el?.tagName === "SPAN",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer assigning to the agent that already owns the issue", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      {
+        id: "issue-1",
+        identifier: "MUL-42",
+        title: "Demo",
+        status: "todo",
+        assignee_type: "agent",
+        assignee_id: "agent-1",
+      },
+    ];
+    mockAgents.current = [assignableAgent, { ...assignableAgent, id: "agent-2", name: "Other Bot" }];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "assign");
+
+    await screen.findByText(
+      (_, el) => el?.textContent === "Assign to Other Bot" && el?.tagName === "SPAN",
+    );
+    expect(screen.queryByText("Assign to Reviewer Bot")).not.toBeInTheDocument();
   });
 
   it("marks the current issue with the built-in status key for the category", async () => {

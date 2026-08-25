@@ -29,6 +29,9 @@ import type {
   SearchProjectResult,
 } from "@multica/core/types";
 import { api } from "@multica/core/api";
+import { useAuthStore } from "@multica/core/auth";
+import { isAgentRuntimeBound } from "@multica/core/agents";
+import { canAssignAgentToIssue } from "@multica/core/permissions";
 import { partitionAggregatedSearchResults } from "@multica/core/search/cancelled-rank";
 import {
   openCreateIssueWithPreference,
@@ -45,7 +48,7 @@ import { useWorkspacePaths, WORKSPACE_PAGES } from "@multica/core/paths";
 import type { WorkspacePageKey, WorkspacePaths } from "@multica/core/paths";
 import { useModalStore } from "@multica/core/modals";
 import { createShortcutChord } from "@multica/core/shortcuts";
-import { memberListOptions } from "@multica/core/workspace/queries";
+import { agentListOptions, memberListOptions } from "@multica/core/workspace/queries";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { StatusIcon } from "../issues/components";
 import { resolvedThreadRootIds, rootCommentIds } from "../issues/components/thread-utils";
@@ -369,6 +372,8 @@ export function SearchCommand() {
   const p: WorkspacePaths = useWorkspacePaths();
   const { theme, setTheme } = useTheme();
   const { data: members = [] } = useQuery(memberListOptions(wsId));
+  const { data: agents = [] } = useQuery(agentListOptions(wsId));
+  const userId = useAuthStore((s) => s.user?.id ?? null);
 
   // Resolve each recent issue via its cached detail entry. Recent items are
   // typically already in the detail cache because the user has opened them;
@@ -545,6 +550,36 @@ export function SearchCommand() {
           },
         });
       }
+
+      // Assign the issue on screen to an agent. Mirrors the assignee picker's
+      // gating: archived or runtime-less agents cannot take work, the
+      // permission rule decides who may invoke each agent, and the agent that
+      // already owns the issue is skipped as a no-op.
+      const memberRole = members.find((m) => m.user_id === userId)?.role;
+      const permissionCtx = {
+        userId,
+        role:
+          memberRole === "owner" || memberRole === "admin" || memberRole === "member"
+            ? memberRole
+            : null,
+      };
+      for (const agent of agents) {
+        if (agent.archived_at || !isAgentRuntimeBound(agent)) continue;
+        if (currentIssue.assignee_type === "agent" && currentIssue.assignee_id === agent.id) continue;
+        if (!canAssignAgentToIssue(agent, permissionCtx).allowed) continue;
+        items.push({
+          key: `assign-to-agent-${agent.id}`,
+          label: t(($) => $.commands.assign_to_agent, { name: agent.name }),
+          iconNode: (
+            <ActorAvatar actorType="agent" actorId={agent.id} size="xs" profileLink={false} className="shrink-0" />
+          ),
+          keywords: ["assign", "assignee", "agent", agent.name.toLowerCase()],
+          onSelect: () => {
+            updateIssue({ id: currentIssueId, assignee_type: "agent", assignee_id: agent.id });
+            setOpen(false);
+          },
+        });
+      }
     }
 
     items.push(
@@ -584,7 +619,7 @@ export function SearchCommand() {
     );
 
     return items;
-  }, [currentIssue, currentIssueId, getShareableUrl, pathname, queryClient, setOpen, setTheme, statusCatalog, theme, t, updateIssue]);
+  }, [agents, currentIssue, currentIssueId, getShareableUrl, members, pathname, queryClient, setOpen, setTheme, statusCatalog, theme, t, updateIssue, userId]);
 
   const filteredCommands = useMemo(() => {
     const q = query.trim().toLowerCase();
