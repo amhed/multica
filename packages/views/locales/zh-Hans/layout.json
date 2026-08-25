@@ -58,6 +58,14 @@
     "discord_card": {
       "title": "加入 Discord",
       "dismiss": "关闭"
+    },
+    "quota": {
+      "title": "服务商配额",
+      "stale": "已过期",
+      "session": "会话",
+      "weekly": "每周",
+      "credits": "额度",
+      "resets": "{{when}} 重置"
     }
   }
 }

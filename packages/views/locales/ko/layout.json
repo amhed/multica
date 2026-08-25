@@ -58,6 +58,14 @@
     "discord_card": {
       "title": "Discord 참여하기",
       "dismiss": "닫기"
+    },
+    "quota": {
+      "title": "프로바이더 할당량",
+      "stale": "오래된 데이터",
+      "session": "세션",
+      "weekly": "주간",
+      "credits": "크레딧",
+      "resets": "{{when}} 초기화"
     }
   }
 }

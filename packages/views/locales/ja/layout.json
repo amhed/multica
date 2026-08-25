@@ -58,6 +58,14 @@
     "discord_card": {
       "title": "Discord に参加",
       "dismiss": "閉じる"
+    },
+    "quota": {
+      "title": "プロバイダーのクォータ",
+      "stale": "古いデータ",
+      "session": "セッション",
+      "weekly": "週間",
+      "credits": "クレジット",
+      "resets": "{{when}} にリセット"
     }
   }
 }

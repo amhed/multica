@@ -262,6 +262,9 @@ import {
   DashboardUsageByAgentListSchema,
   DashboardUsageDailyListSchema,
   EMPTY_APP_CONFIG,
+  EMPTY_QUOTA_SNAPSHOT,
+  QuotaSnapshotSchema,
+  type QuotaSnapshot,
   EMPTY_ATTACHMENT,
   EMPTY_CHAT_MESSAGE_LIST,
   EMPTY_CHAT_PENDING_TASK,
@@ -2406,6 +2409,23 @@ export class ApiClient {
   }
 
   // App Config
+  /**
+   * Provider quota snapshot relayed from the host. `null` when the server has
+   * no snapshot (404), which the UI treats as "nothing to show".
+   */
+  async getQuota(): Promise<QuotaSnapshot | null> {
+    let raw: unknown;
+    try {
+      raw = await this.fetch<unknown>("/api/quota");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+    return parseWithFallback<QuotaSnapshot>(raw, QuotaSnapshotSchema, EMPTY_QUOTA_SNAPSHOT, {
+      endpoint: "GET /api/quota",
+    });
+  }
+
   async getConfig(): Promise<AppConfigResponse> {
     const raw = await this.fetch<unknown>("/api/config");
     return parseWithFallback<AppConfigResponse>(raw, AppConfigSchema, EMPTY_APP_CONFIG, {

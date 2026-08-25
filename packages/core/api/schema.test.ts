@@ -633,6 +633,41 @@ describe("ApiClient schema fallback", () => {
     });
   });
 
+  describe("getQuota", () => {
+    it("parses a limits.v1 snapshot and keeps unknown resource kinds", async () => {
+      stubFetchJson({
+        schema: "openusage.limits.v1",
+        stale: false,
+        providers: {
+          claude: {
+            displayName: "Claude",
+            resources: {
+              session: { kind: "consumption", unit: "percent", used: 57, limit: 100, utilization: 0.57 },
+              mystery: { kind: "something-new", unit: "widgets" },
+            },
+          },
+        },
+      });
+      const client = new ApiClient("https://api.example.test");
+      const quota = await client.getQuota();
+      expect(quota?.providers.claude?.resources.session?.utilization).toBe(0.57);
+      expect(quota?.providers.claude?.resources.mystery?.kind).toBe("something-new");
+    });
+
+    it("falls back to an empty snapshot when the response is malformed", async () => {
+      stubFetchJson({ providers: "nope", stale: "maybe" });
+      const client = new ApiClient("https://api.example.test");
+      const quota = await client.getQuota();
+      expect(quota).toEqual({ schema: "", stale: false, providers: {} });
+    });
+
+    it("returns null when the server has no snapshot (404)", async () => {
+      stubFetchJson({ error: "quota snapshot not available" }, 404);
+      const client = new ApiClient("https://api.example.test");
+      expect(await client.getQuota()).toBeNull();
+    });
+  });
+
   describe("listGroupedIssues", () => {
     it("falls back to empty groups when the response is malformed", async () => {
       stubFetchJson({ groups: "not-an-array" });

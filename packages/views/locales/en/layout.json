@@ -58,6 +58,14 @@
     "discord_card": {
       "title": "Join our Discord",
       "dismiss": "Dismiss"
+    },
+    "quota": {
+      "title": "Provider quota",
+      "stale": "Stale",
+      "session": "Session",
+      "weekly": "Weekly",
+      "credits": "Credits",
+      "resets": "Resets {{when}}"
     }
   }
 }

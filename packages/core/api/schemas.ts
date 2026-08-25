@@ -946,6 +946,73 @@ export const AppConfigSchema = z.object({
   server_version: OptionalStringSchema,
 }).loose();
 
+// ---------------------------------------------------------------------------
+// Provider quota snapshot (GET /api/quota)
+// ---------------------------------------------------------------------------
+//
+// Written on the host by an external collector (OpenUsage `limits.v1`) and
+// relayed verbatim by the server. Kept lenient: resources are a free-form map
+// whose entries are either a consumption window or a balance, and unknown
+// kinds must still parse so a new collector version degrades to "not shown".
+
+export interface QuotaResource {
+  kind: string;
+  unit: string;
+  used?: number;
+  limit?: number;
+  remaining?: number;
+  utilization?: number;
+  available?: number;
+  resetsAt?: string;
+  windowSeconds?: number;
+}
+
+export interface QuotaProvider {
+  displayName: string;
+  fetchedAt?: string;
+  resources: Record<string, QuotaResource>;
+  plan?: string;
+}
+
+export interface QuotaSnapshot {
+  schema: string;
+  generatedAt?: string;
+  stale: boolean;
+  providers: Record<string, QuotaProvider>;
+}
+
+const QuotaResourceSchema = z.object({
+  kind: z.string().default("unknown"),
+  unit: z.string().default(""),
+  used: z.number().optional(),
+  limit: z.number().optional(),
+  remaining: z.number().optional(),
+  utilization: z.number().optional(),
+  available: z.number().optional(),
+  resetsAt: OptionalStringSchema.optional(),
+  windowSeconds: z.number().optional(),
+}).loose();
+
+const QuotaProviderSchema = z.object({
+  displayName: z.string().default(""),
+  fetchedAt: OptionalStringSchema.optional(),
+  resources: z.record(z.string(), QuotaResourceSchema).default({}),
+  plan: OptionalStringSchema.optional(),
+}).loose();
+
+export const QuotaSnapshotSchema = z.object({
+  schema: z.string().default(""),
+  generatedAt: OptionalStringSchema.optional(),
+  stale: BooleanWithDefaultSchema(false),
+  providers: z.record(z.string(), QuotaProviderSchema).default({}),
+}).loose();
+
+export const EMPTY_QUOTA_SNAPSHOT: QuotaSnapshot = {
+  schema: "",
+  stale: false,
+  providers: {},
+};
+
 export const EMPTY_APP_CONFIG: AppConfigResponse = {
   cdn_domain: "",
   cdn_signed: false,
