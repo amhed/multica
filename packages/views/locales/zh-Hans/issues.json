@@ -355,6 +355,7 @@
     },
     "sidebar_tooltip": "切换右侧边栏",
     "scroll_to_top": "回到顶部",
+    "scroll_to_bottom": "回到底部",
     "find": {
       "placeholder": "在任务中查找...",
       "count": "{{current}}/{{total}}",

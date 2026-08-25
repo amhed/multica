@@ -362,6 +362,7 @@
     },
     "sidebar_tooltip": "Toggle right sidebar",
     "scroll_to_top": "Scroll to top",
+    "scroll_to_bottom": "Scroll to bottom",
     "find": {
       "placeholder": "Find in issue...",
       "count": "{{current}}/{{total}}",

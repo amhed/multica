@@ -357,6 +357,7 @@
     },
     "sidebar_tooltip": "오른쪽 사이드바 열기/닫기",
     "scroll_to_top": "맨 위로",
+    "scroll_to_bottom": "맨 아래로",
     "find": {
       "placeholder": "태스크에서 찾기...",
       "count": "{{current}}/{{total}}",
