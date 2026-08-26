@@ -3,13 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { QuotaProvider, QuotaResource } from "@multica/core/api/schemas";
 import { quotaOptions } from "@multica/core/quota/queries";
-import {
-  Progress,
-  ProgressIndicator,
-  ProgressLabel,
-  ProgressTrack,
-  ProgressValue,
-} from "@multica/ui/components/ui/progress";
+import { Progress, ProgressLabel, ProgressValue } from "@multica/ui/components/ui/progress";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../i18n";
 
@@ -113,20 +107,22 @@ function ConsumptionBar({
     resetsAt && !Number.isNaN(resetsAt.getTime()) ? resetsLabel(resetsAt.toLocaleString()) : undefined;
 
   return (
+    // `Progress` renders its own track + indicator after `children`, so the
+    // indicator is recolored from the root rather than by adding a second track.
     <Progress
       value={percent}
       title={title}
-      className="gap-x-2 gap-y-0.5"
+      className={cn(
+        "gap-x-2 gap-y-0.5",
+        percent >= 90
+          ? "[&_[data-slot=progress-indicator]]:bg-destructive"
+          : percent >= 75
+            ? "[&_[data-slot=progress-indicator]]:bg-warning"
+            : null,
+      )}
     >
       <ProgressLabel className="text-caption font-normal text-muted-foreground">{label}</ProgressLabel>
       <ProgressValue className="text-caption">{() => `${Math.round(percent)}%`}</ProgressValue>
-      <ProgressTrack>
-        <ProgressIndicator
-          className={cn(
-            percent >= 90 ? "bg-destructive" : percent >= 75 ? "bg-warning" : "bg-primary",
-          )}
-        />
-      </ProgressTrack>
     </Progress>
   );
 }

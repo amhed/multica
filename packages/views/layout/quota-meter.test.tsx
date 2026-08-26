@@ -79,6 +79,10 @@ describe("QuotaMeter", () => {
     expect(screen.getByText("2%")).toBeInTheDocument();
     // Claude has session + weekly, Codex has weekly: three bars in total.
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
+    // One track per bar: the shared Progress already draws its own, so the
+    // widget must not add a second one (regression: doubled bars in the sidebar).
+    expect(document.querySelectorAll('[data-slot="progress-track"]')).toHaveLength(3);
+    expect(document.querySelectorAll('[data-slot="progress-indicator"]')).toHaveLength(3);
     // Grok has no consumption window, so its balance is shown inline instead.
     expect(screen.getByText("12 Credits")).toBeInTheDocument();
     // Codex has a bar, so its zero credit balance does not compete with it.
