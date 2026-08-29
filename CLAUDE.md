@@ -107,6 +107,14 @@ Worktrees share one PostgreSQL container and get isolated DB names/ports via `.e
 
 CI runs Node 22, the latest Go 1.26 patch, and a `pgvector/pgvector:pg17` PostgreSQL service.
 
+## Code Discovery
+
+`.mcp.json` registers [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp), a knowledge-graph index of this repository.
+
+- Install the binary once per machine: `curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash` (also on Homebrew/npm/pip). The index lives in `~/.cache/codebase-memory-mcp/` and is not committed.
+- On first use in a checkout, run the `index_repository` tool; re-run it after large rebases.
+- Prefer the graph before text search for code-shape questions: `search_graph` to find symbols, `trace_path` for call chains, `get_code_snippet` for exact symbol source, `get_architecture` for structure. Use grep/Read for text, configs, and non-code files.
+
 ## Database and Migration Rules
 
 These are hard requirements for every new or modified database design and production migration:
