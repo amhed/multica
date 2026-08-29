@@ -99,6 +99,8 @@ const {
       id: string;
       name: string;
       avatar_url: string | null;
+      leader_id?: string;
+      archived_at?: string | null;
     }>,
   },
   mockOpenModal: vi.fn(),
@@ -824,6 +826,67 @@ describe("SearchCommand", () => {
         (_, el) => el?.textContent === "Assign to Reviewer Bot" && el?.tagName === "SPAN",
       ),
     ).toBeInTheDocument();
+  });
+
+  // Squad assignment follows the assignee picker: a squad is offered only when
+  // its leader agent is runtime-bound, and the row carries a muted "squad"
+  // suffix so it is distinguishable from an agent of the same name.
+  it("offers an Assign-to command per squad whose leader is runtime-bound", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo" },
+    ];
+    mockAgents.current = [
+      assignableAgent,
+      { ...assignableAgent, id: "agent-2", name: "Idle Bot", runtime_id: "" },
+    ];
+    mockSquads.current = [
+      { id: "squad-1", name: "Backend", avatar_url: null, leader_id: "agent-1", archived_at: null },
+      // Leader cannot run work, so the squad is not offered.
+      { id: "squad-2", name: "Idle Squad", avatar_url: null, leader_id: "agent-2", archived_at: null },
+      { id: "squad-3", name: "Old Squad", avatar_url: null, leader_id: "agent-1", archived_at: "2026-01-01T00:00:00Z" },
+    ];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "assign");
+
+    const item = await screen.findByText(
+      (_, el) => el?.textContent === "Assign to Backend" && el?.tagName === "SPAN",
+    );
+    expect(screen.getByText("squad")).toBeInTheDocument();
+    expect(screen.queryByText("Assign to Idle Squad")).not.toBeInTheDocument();
+    expect(screen.queryByText("Assign to Old Squad")).not.toBeInTheDocument();
+
+    await user.click(item);
+    expect(mockUpdateIssueMutate).toHaveBeenCalledWith({
+      id: "issue-1",
+      assignee_type: "squad",
+      assignee_id: "squad-1",
+    });
+    expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  it("does not offer assigning to the squad that already owns the issue", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "todo", assignee_type: "squad", assignee_id: "squad-1" },
+    ];
+    mockAgents.current = [assignableAgent];
+    mockSquads.current = [
+      { id: "squad-1", name: "Backend", avatar_url: null, leader_id: "agent-1", archived_at: null },
+    ];
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "assign");
+
+    await screen.findByText(
+      (_, el) => el?.textContent === "Assign to Reviewer Bot" && el?.tagName === "SPAN",
+    );
+    expect(screen.queryByText("Assign to Backend")).not.toBeInTheDocument();
   });
 
   it("does not offer assigning to the agent that already owns the issue", async () => {

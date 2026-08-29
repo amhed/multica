@@ -26,6 +26,7 @@
     "mark_as_blocked": "Mark as Blocked",
     "mark_as_cancelled": "Mark as Cancelled",
     "assign_to_agent": "Assign to {{name}}",
+    "squad_suffix": "squad",
     "switch_to_light": "Switch to Light Theme",
     "switch_to_dark": "Switch to Dark Theme",
     "use_system_theme": "Use System Theme"

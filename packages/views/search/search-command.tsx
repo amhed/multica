@@ -48,7 +48,7 @@ import { useWorkspacePaths, WORKSPACE_PAGES } from "@multica/core/paths";
 import type { WorkspacePageKey, WorkspacePaths } from "@multica/core/paths";
 import { useModalStore } from "@multica/core/modals";
 import { createShortcutChord } from "@multica/core/shortcuts";
-import { agentListOptions, memberListOptions } from "@multica/core/workspace/queries";
+import { agentListOptions, memberListOptions, squadListOptions } from "@multica/core/workspace/queries";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { StatusIcon } from "../issues/components";
 import { resolvedThreadRootIds, rootCommentIds } from "../issues/components/thread-utils";
@@ -282,6 +282,8 @@ function IssueResultRow({
 interface CommandItem {
   key: string;
   label: string;
+  /** Muted text rendered after the label (e.g. "squad" to disambiguate actors). */
+  labelSuffix?: string;
   /** A lucide icon, or a custom node via `iconNode` (e.g. a StatusIcon). */
   icon?: LucideIcon;
   iconNode?: React.ReactNode;
@@ -373,6 +375,7 @@ export function SearchCommand() {
   const { theme, setTheme } = useTheme();
   const { data: members = [] } = useQuery(memberListOptions(wsId));
   const { data: agents = [] } = useQuery(agentListOptions(wsId));
+  const { data: squads = [] } = useQuery(squadListOptions(wsId));
   const userId = useAuthStore((s) => s.user?.id ?? null);
 
   // Resolve each recent issue via its cached detail entry. Recent items are
@@ -580,6 +583,29 @@ export function SearchCommand() {
           },
         });
       }
+
+      // Squads route work to their leader agent, so a squad is offered only
+      // when that leader can run (same rule as the assignee picker).
+      const runnableAgentIds = new Set(
+        agents.filter((a) => !a.archived_at && isAgentRuntimeBound(a)).map((a) => a.id),
+      );
+      for (const squad of squads) {
+        if (squad.archived_at || !runnableAgentIds.has(squad.leader_id)) continue;
+        if (currentIssue.assignee_type === "squad" && currentIssue.assignee_id === squad.id) continue;
+        items.push({
+          key: `assign-to-squad-${squad.id}`,
+          label: t(($) => $.commands.assign_to_agent, { name: squad.name }),
+          labelSuffix: t(($) => $.commands.squad_suffix),
+          iconNode: (
+            <ActorAvatar actorType="squad" actorId={squad.id} size="xs" profileLink={false} className="shrink-0" />
+          ),
+          keywords: ["assign", "assignee", "squad", squad.name.toLowerCase()],
+          onSelect: () => {
+            updateIssue({ id: currentIssueId, assignee_type: "squad", assignee_id: squad.id });
+            setOpen(false);
+          },
+        });
+      }
     }
 
     items.push(
@@ -619,7 +645,7 @@ export function SearchCommand() {
     );
 
     return items;
-  }, [agents, currentIssue, currentIssueId, getShareableUrl, members, pathname, queryClient, setOpen, setTheme, statusCatalog, theme, t, updateIssue, userId]);
+  }, [agents, squads, currentIssue, currentIssueId, getShareableUrl, members, pathname, queryClient, setOpen, setTheme, statusCatalog, theme, t, updateIssue, userId]);
 
   const filteredCommands = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -884,6 +910,9 @@ export function SearchCommand() {
                     <span className="truncate">
                       <HighlightText text={cmd.label} query={query} />
                     </span>
+                    {cmd.labelSuffix && (
+                      <span className="shrink-0 text-caption text-muted-foreground">{cmd.labelSuffix}</span>
+                    )}
                     {cmd.trailing}
                   </CommandPrimitive.Item>
                 ))}

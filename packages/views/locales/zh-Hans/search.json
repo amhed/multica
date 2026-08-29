@@ -26,6 +26,7 @@
     "mark_as_blocked": "标记为已阻塞",
     "mark_as_cancelled": "标记为已取消",
     "assign_to_agent": "分配给 {{name}}",
+    "squad_suffix": "小队",
     "switch_to_light": "切换到浅色主题",
     "switch_to_dark": "切换到深色主题",
     "use_system_theme": "跟随系统主题"

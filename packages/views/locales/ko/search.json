@@ -26,6 +26,7 @@
     "mark_as_blocked": "막힘으로 표시",
     "mark_as_cancelled": "취소됨으로 표시",
     "assign_to_agent": "{{name}}에게 할당",
+    "squad_suffix": "스쿼드",
     "switch_to_light": "라이트 테마로 전환",
     "switch_to_dark": "다크 테마로 전환",
     "use_system_theme": "시스템 테마 사용"
