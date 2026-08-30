@@ -80,7 +80,7 @@ function IssueGroup({ wsId, group }: { wsId: string; group: ActiveTaskGroup }) {
 
   return (
     <section className="flex min-w-0 flex-col gap-2">
-      <h2 className="min-w-0 text-body">
+      <h2 className="min-w-0 text-body-lg">
         {group.issueId ? (
           issue ? (
             <AppLink
@@ -88,7 +88,7 @@ function IssueGroup({ wsId, group }: { wsId: string; group: ActiveTaskGroup }) {
               className="flex min-w-0 items-baseline gap-2 hover:underline"
               title={`${issue.identifier} ${issue.title}`}
             >
-              <span className="shrink-0 font-mono text-caption text-muted-foreground">
+              <span className="shrink-0 font-mono text-body text-muted-foreground">
                 {issue.identifier}
               </span>
               <span className="truncate font-medium">{issue.title}</span>

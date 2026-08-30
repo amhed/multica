@@ -76,13 +76,13 @@ export function ActiveTaskCard({ wsId, task }: ActiveTaskCardProps) {
       <div className="flex items-center gap-2">
         <ActorAvatar actorType="agent" actorId={task.agent_id} size="sm" profileLink={false} />
         {agent ? (
-          <span className="truncate text-caption font-medium">{agent.name}</span>
+          <span className="truncate text-body font-medium">{agent.name}</span>
         ) : (
           <Skeleton className="h-4 w-24" />
         )}
         <span
           className={cn(
-            "flex min-w-0 items-center gap-1.5 text-caption",
+            "flex min-w-0 items-center gap-1.5 text-body",
             stale ? "text-warning" : "text-muted-foreground",
           )}
         >
@@ -103,12 +103,12 @@ export function ActiveTaskCard({ wsId, task }: ActiveTaskCardProps) {
         </div>
       </div>
 
-      <p className="line-clamp-2 text-caption text-muted-foreground" title={triggerText}>
+      <p className="line-clamp-2 text-body text-muted-foreground" title={triggerText}>
         {doingText}
       </p>
 
       {isRunning && (
-        <ul className="flex flex-col gap-1 border-t pt-2 text-micro">
+        <ul className="flex flex-col gap-1 border-t pt-2 text-caption">
           {peek.length === 0 ? (
             <li className="italic text-muted-foreground">
               {t(($) => $.active_board.waiting_for_activity)}
@@ -144,7 +144,7 @@ function PeekRow({ step }: { step: TraceStep }) {
   if (step.kind === "call") {
     return (
       <li className="flex min-w-0 items-baseline gap-1.5">
-        <span className="shrink-0 rounded bg-muted px-1 font-mono text-micro text-muted-foreground">
+        <span className="shrink-0 rounded bg-muted px-1 font-mono text-caption text-muted-foreground">
           {step.tool}
         </span>
         <span className="truncate text-foreground/80">
