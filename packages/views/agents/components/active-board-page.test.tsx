@@ -96,26 +96,42 @@ describe("ActiveBoardPage", () => {
 
   it("renders a card per active task with agent, issue, summary and activity peek", () => {
     mockSnapshot.current = [
-      task({ id: "11111111-1111-4111-8111-111111111111", issue_id: "issue-1", handoff_note: "Ship the squad palette" }),
+      task({
+        id: "11111111-1111-4111-8111-111111111111",
+        issue_id: "issue-1",
+        handoff_note: "[@Squirtle](mention://agent/agent-1) ship the squad palette",
+      }),
+      task({ id: "t4", agent_id: "agent-2", issue_id: "issue-1", status: "queued", kind: "comment" }),
       task({ id: "t2", agent_id: "agent-2", status: "queued", kind: "direct" }),
       task({ id: "t3", status: "completed" }),
     ];
     mockIssues.current = { "issue-1": { id: "issue-1", identifier: "MUL-42", title: "Palette" } };
     mockMessages.current = [
       { seq: 1, type: "tool_use", tool: "Edit", input: { file_path: "packages/views/search/search-command.tsx" } },
+      { seq: 2, type: "tool_result", tool: "Edit", output: '{"type":"SearchReplace","EditsApplied":{}}' },
+      { seq: 3, type: "text", content: "Now wiring the command." },
     ];
     renderPage();
 
     expect(screen.getByText("Squirtle")).toBeInTheDocument();
-    expect(screen.getByText("Bulbasaur")).toBeInTheDocument();
+    expect(screen.getAllByText("Bulbasaur")).toHaveLength(2);
     expect(screen.getByRole("link", { name: /MUL-42/ })).toHaveAttribute("href", "/acme/issues/issue-1");
-    expect(screen.getByText("Ship the squad palette")).toBeInTheDocument();
+    // One issue heading for both issue-1 tasks; the running one shows the
+    // agent's latest words, the queued one its trigger.
+    expect(screen.getAllByRole("link", { name: /MUL-42/ })).toHaveLength(1);
+    // Shown once as the doing-now line, not again in the activity peek.
+    expect(screen.getAllByText("Now wiring the command.")).toHaveLength(1);
+    expect(screen.getByText("Triggered by a comment")).toBeInTheDocument();
     expect(screen.getByText("Direct assignment")).toBeInTheDocument();
     expect(screen.getByText("No linked issue")).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
-    expect(screen.getByText("Queued")).toBeInTheDocument();
-    expect(screen.getByText(/Edit .*search-command\.tsx/)).toBeInTheDocument();
-    // Only the two active tasks become cards.
-    expect(screen.getAllByRole("button", { name: "transcript" })).toHaveLength(2);
+    expect(screen.getAllByText("Queued")).toHaveLength(2);
+    expect(screen.getByText("1 running · 2 waiting")).toBeInTheDocument();
+    // Tool calls read as name + argument; raw result JSON never shows.
+    expect(screen.getByText("Edit")).toBeInTheDocument();
+    expect(screen.getByText(/search-command\.tsx/)).toBeInTheDocument();
+    expect(screen.queryByText(/EditsApplied/)).not.toBeInTheDocument();
+    // Only the three active tasks become cards.
+    expect(screen.getAllByRole("button", { name: "transcript" })).toHaveLength(3);
   });
 });

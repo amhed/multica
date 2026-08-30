@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { AgentTask } from "@multica/core/types";
-import { selectActiveTasks, taskSummary } from "./active-board";
+import { activeCounts, groupActiveTasks, isStale, plainSummary, selectActiveTasks, taskSummary } from "./active-board";
 
 function task(over: Partial<AgentTask>): AgentTask {
   return {
@@ -58,5 +58,45 @@ describe("taskSummary", () => {
   it("falls back to the task kind when no text is available", () => {
     expect(taskSummary(task({ kind: "direct" }))).toEqual({ source: "kind", kind: "direct" });
     expect(taskSummary(task({}))).toEqual({ source: "kind", kind: "unknown" });
+  });
+});
+
+describe("groupActiveTasks", () => {
+  it("folds same-issue tasks into one group at the first task's position", () => {
+    const out = groupActiveTasks([
+      task({ id: "a", issue_id: "i1", status: "running" }),
+      task({ id: "b", issue_id: "i2", status: "running" }),
+      task({ id: "c", issue_id: "i1", status: "queued" }),
+      task({ id: "d", issue_id: "" }),
+    ]);
+    expect(out.map((g) => [g.key, g.tasks.map((t) => t.id)])).toEqual([
+      ["i1", ["a", "c"]],
+      ["i2", ["b"]],
+      ["d", ["d"]],
+    ]);
+  });
+});
+
+describe("plainSummary", () => {
+  it("renders mention, link and code markdown as prose", () => {
+    expect(
+      plainSummary(
+        "[@Grok Senior Dev](mention://agent/1a75) — PR [#24](https://github.com/x/y/pull/24) carries `LAP-33`\n\nand  more",
+      ),
+    ).toBe("@Grok Senior Dev — PR #24 carries LAP-33 and more");
+  });
+});
+
+describe("activeCounts / isStale", () => {
+  it("splits running from everything else", () => {
+    expect(
+      activeCounts([task({ status: "running" }), task({ status: "queued" }), task({ status: "dispatched" })]),
+    ).toEqual({ running: 1, waiting: 2 });
+  });
+
+  it("flags activity older than the threshold", () => {
+    const now = Date.parse("2026-08-29T10:20:00Z");
+    expect(isStale("2026-08-29T10:15:00Z", now)).toBe(false);
+    expect(isStale("2026-08-29T10:05:00Z", now)).toBe(true);
   });
 });

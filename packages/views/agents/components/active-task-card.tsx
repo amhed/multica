@@ -4,29 +4,20 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { cn } from "@multica/ui/lib/utils";
-import { useWorkspacePaths } from "@multica/core/paths";
 import { agentListOptions } from "@multica/core/workspace/queries";
-import { issueDetailOptions } from "@multica/core/issues";
 import { taskMessagesOptions } from "@multica/core/chat/queries";
 import type { AgentTask } from "@multica/core/types";
 import { ActorAvatar } from "../../common/actor-avatar";
-import { AppLink } from "../../navigation";
 import { useT, useTimeAgo } from "../../i18n";
-import { buildTimeline, type TimelineItem } from "../../common/task-transcript/build-timeline";
+import { buildTimeline } from "../../common/task-transcript/build-timeline";
+import { buildSteps, type TraceStep } from "../../common/task-transcript/build-steps";
 import { traceToolArgSummary } from "../../common/task-transcript/trace-event-presenter";
 import { TranscriptButton } from "../../common/task-transcript/transcript-button";
-import { taskSummary } from "./active-board";
+import { isStale, plainSummary, taskSummary } from "./active-board";
 
 const PEEK_ITEMS = 3;
 
 type ActiveStatus = "running" | "waiting_local_directory" | "dispatched" | "queued";
-
-const STATUS_DOT: Record<string, string> = {
-  running: "bg-success",
-  waiting_local_directory: "bg-warning",
-  dispatched: "bg-muted-foreground",
-  queued: "bg-muted-foreground",
-};
 
 interface ActiveTaskCardProps {
   wsId: string;
@@ -34,18 +25,14 @@ interface ActiveTaskCardProps {
 }
 
 /**
- * One card per active task: who is working, on which issue, what the task is
- * about, and a live peek at the last few transcript events.
+ * One row per active task under its issue: who is working, what they are
+ * doing now, and a live peek at the last few transcript steps. Tool calls
+ * read as `Tool argument`, never as raw JSON.
  */
 export function ActiveTaskCard({ wsId, task }: ActiveTaskCardProps) {
   const { t } = useT("agents");
-  const p = useWorkspacePaths();
   const timeAgo = useTimeAgo();
   const { data: agents = [] } = useQuery(agentListOptions(wsId));
-  const { data: issue } = useQuery({
-    ...issueDetailOptions(wsId, task.issue_id),
-    enabled: !!task.issue_id,
-  });
   const agent = agents.find((a) => a.id === task.agent_id);
   const isRunning = task.status === "running";
 
@@ -55,80 +42,79 @@ export function ActiveTaskCard({ wsId, task }: ActiveTaskCardProps) {
     ...taskMessagesOptions(task.id),
     enabled: isRunning && taskMessagesOptions(task.id).enabled,
   });
-  const peek = useMemo(
-    () => buildTimeline(messages).slice(-PEEK_ITEMS),
-    [messages],
-  );
+  const { peek, lastText, lastActivityAt } = useMemo(() => {
+    const steps = buildSteps(buildTimeline(messages)).filter((s) => s.kind !== "thinking");
+    const lastTextStep = steps.filter((s) => s.kind === "text").at(-1);
+    const last = steps.at(-1);
+    // The latest text becomes the card's "doing now" line; repeating it in
+    // the peek would say the same thing twice.
+    return {
+      peek: steps.filter((s) => s !== lastTextStep).slice(-PEEK_ITEMS),
+      lastText: lastTextStep ? stepText(lastTextStep) : "",
+      lastActivityAt: last?.startedAt ?? (last?.kind === "call" ? last.endedAt : undefined),
+    };
+  }, [messages]);
 
   const summary = taskSummary(task);
-  const summaryText =
+  const triggerText =
     summary.source === "kind"
       ? t(($) => $.active_board.kind[summary.kind])
-      : summary.text;
+      : plainSummary(summary.text);
+  // What the agent last said is a better "doing now" line than the comment
+  // that woke it; the trigger stays reachable on hover.
+  const doingText = isRunning && lastText ? lastText : triggerText;
+
   const startedAt = task.started_at ?? task.dispatched_at ?? task.created_at;
+  const stale = isRunning && isStale(lastActivityAt ?? startedAt);
+  const timeLabel =
+    isRunning && lastActivityAt
+      ? t(($) => $.active_board.active_ago, { ago: timeAgo(lastActivityAt) })
+      : t(($) => $.active_board.started_ago, { ago: timeAgo(startedAt) });
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-md border p-3">
+    <div className="flex min-w-0 flex-col gap-2 rounded-md border p-3">
       <div className="flex items-center gap-2">
         <ActorAvatar actorType="agent" actorId={task.agent_id} size="sm" profileLink={false} />
-        <div className="min-w-0 flex-1">
-          {agent ? (
-            <p className="truncate text-body font-medium">{agent.name}</p>
-          ) : (
-            <Skeleton className="h-4 w-24" />
-          )}
-          <p className="flex items-center gap-1.5 text-caption text-muted-foreground">
-            <span
-              className={cn("size-1.5 shrink-0 rounded-full", STATUS_DOT[task.status] ?? "bg-muted-foreground")}
-            />
-            <span>{t(($) => $.active_board.status[task.status as ActiveStatus])}</span>
-            <span>·</span>
-            <span>{timeAgo(startedAt)}</span>
-          </p>
-        </div>
-        {agent && (
-          <TranscriptButton
-            task={task}
-            agentName={agent.name}
-            isLive={isRunning}
-            title={t(($) => $.active_board.view_transcript)}
-          />
-        )}
-      </div>
-
-      <div className="min-w-0 text-caption">
-        {task.issue_id ? (
-          issue ? (
-            <AppLink
-              href={p.issueDetail(task.issue_id)}
-              className="block truncate text-brand hover:underline"
-              title={`${issue.identifier} ${issue.title}`}
-            >
-              <span className="mr-1 font-mono text-micro">{issue.identifier}</span>
-              <span>{issue.title}</span>
-            </AppLink>
-          ) : (
-            <Skeleton className="h-3 w-40" />
-          )
+        {agent ? (
+          <span className="truncate text-caption font-medium">{agent.name}</span>
         ) : (
-          <span className="text-muted-foreground">{t(($) => $.active_board.no_issue)}</span>
+          <Skeleton className="h-4 w-24" />
         )}
+        <span
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 text-caption",
+            stale ? "text-warning" : "text-muted-foreground",
+          )}
+        >
+          <StatusDot status={task.status} stale={stale} />
+          <span>{t(($) => $.active_board.status[task.status as ActiveStatus])}</span>
+          <span aria-hidden="true">·</span>
+          <span className="truncate">{timeLabel}</span>
+        </span>
+        <div className="ml-auto shrink-0">
+          {agent && (
+            <TranscriptButton
+              task={task}
+              agentName={agent.name}
+              isLive={isRunning}
+              title={t(($) => $.active_board.view_transcript)}
+            />
+          )}
+        </div>
       </div>
 
-      <p className="line-clamp-2 text-caption text-muted-foreground" title={summaryText}>
-        {summaryText}
+      <p className="line-clamp-2 text-caption text-muted-foreground" title={triggerText}>
+        {doingText}
       </p>
 
       {isRunning && (
-        <ul className="flex flex-col gap-1 border-t pt-2 text-micro text-muted-foreground">
+        <ul className="flex flex-col gap-1 border-t pt-2 text-micro">
           {peek.length === 0 ? (
-            <li className="italic">{t(($) => $.active_board.waiting_for_activity)}</li>
+            <li className="italic text-muted-foreground">
+              {t(($) => $.active_board.waiting_for_activity)}
+            </li>
           ) : (
-            peek.map((item) => (
-              <li key={item.seq} className="truncate font-mono">
-                {peekLine(item)}
-              </li>
-            ))
+            peek.map((step) => <PeekRow key={step.seq} step={step} />)
           )}
         </ul>
       )}
@@ -136,15 +122,49 @@ export function ActiveTaskCard({ wsId, task }: ActiveTaskCardProps) {
   );
 }
 
-function peekLine(item: TimelineItem): string {
-  switch (item.type) {
-    case "tool_use":
-      return `${item.tool ?? "tool"} ${traceToolArgSummary(item.input)}`.trim();
-    case "tool_result":
-      return `↳ ${(item.output ?? "").replace(/\s+/g, " ").slice(0, 120)}`;
-    case "error":
-      return `✗ ${(item.content ?? "").replace(/\s+/g, " ").slice(0, 120)}`;
-    default:
-      return (item.content ?? "").replace(/\s+/g, " ").slice(0, 120);
+function StatusDot({ status, stale }: { status: AgentTask["status"]; stale: boolean }) {
+  if (status === "running") {
+    return (
+      <span
+        className={cn(
+          "size-1.5 shrink-0 rounded-full",
+          stale ? "bg-warning" : "animate-pulse bg-success",
+        )}
+      />
+    );
   }
+  if (status === "waiting_local_directory") {
+    return <span className="size-1.5 shrink-0 rounded-full bg-warning" />;
+  }
+  // Queued and dispatched: hollow, so "not yet running" reads at a glance.
+  return <span className="size-1.5 shrink-0 rounded-full border border-muted-foreground" />;
+}
+
+function PeekRow({ step }: { step: TraceStep }) {
+  if (step.kind === "call") {
+    return (
+      <li className="flex min-w-0 items-baseline gap-1.5">
+        <span className="shrink-0 rounded bg-muted px-1 font-mono text-micro text-muted-foreground">
+          {step.tool}
+        </span>
+        <span className="truncate text-foreground/80">
+          {traceToolArgSummary(step.call?.input)}
+        </span>
+      </li>
+    );
+  }
+  const text = stepText(step);
+  return (
+    <li
+      className={cn("truncate", step.kind === "error" ? "text-destructive" : "text-foreground/80")}
+      title={text}
+    >
+      {step.kind === "error" ? `✗ ${text}` : text}
+    </li>
+  );
+}
+
+function stepText(step: TraceStep): string {
+  if (step.kind === "call") return "";
+  return plainSummary(step.item.content ?? "");
 }
