@@ -937,5 +937,27 @@
   "actions": {
     "selected_other": "{{count}}개 선택됨",
     "clear_selection": "선택 해제"
+  },
+  "active_board": {
+    "title": "진행 중",
+    "tagline": "에이전트가 지금 작업 중인 모든 태스크.",
+    "empty": "현재 작업 중인 에이전트가 없습니다.",
+    "no_issue": "연결된 이슈 없음",
+    "view_transcript": "기록 보기",
+    "waiting_for_activity": "활동 대기 중…",
+    "status": {
+      "running": "실행 중",
+      "waiting_local_directory": "디렉터리 대기",
+      "dispatched": "디스패치됨",
+      "queued": "대기열"
+    },
+    "kind": {
+      "comment": "댓글로 트리거됨",
+      "autopilot": "오토파일럿 실행",
+      "chat": "채팅 세션",
+      "quick_create": "빠른 생성 이슈",
+      "direct": "직접 할당",
+      "unknown": "할당된 태스크"
+    }
   }
 }

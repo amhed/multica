@@ -958,5 +958,27 @@
     "selected_one": "{{count}} selected",
     "selected_other": "{{count}} selected",
     "clear_selection": "Clear selection"
+  },
+  "active_board": {
+    "title": "Active",
+    "tagline": "Every task an agent is working on right now.",
+    "empty": "No agents are working right now.",
+    "no_issue": "No linked issue",
+    "view_transcript": "View transcript",
+    "waiting_for_activity": "Waiting for activity…",
+    "status": {
+      "running": "Running",
+      "waiting_local_directory": "Waiting for directory",
+      "dispatched": "Dispatched",
+      "queued": "Queued"
+    },
+    "kind": {
+      "comment": "Triggered by a comment",
+      "autopilot": "Autopilot run",
+      "chat": "Chat session",
+      "quick_create": "Quick-created issue",
+      "direct": "Direct assignment",
+      "unknown": "Assigned task"
+    }
   }
 }

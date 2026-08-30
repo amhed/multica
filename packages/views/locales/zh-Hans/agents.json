@@ -937,5 +937,27 @@
   "actions": {
     "selected_other": "已选 {{count}} 项",
     "clear_selection": "清除选择"
+  },
+  "active_board": {
+    "title": "进行中",
+    "tagline": "智能体当前正在处理的所有任务。",
+    "empty": "当前没有智能体在工作。",
+    "no_issue": "未关联任务",
+    "view_transcript": "查看执行记录",
+    "waiting_for_activity": "等待活动…",
+    "status": {
+      "running": "运行中",
+      "waiting_local_directory": "等待目录",
+      "dispatched": "已派发",
+      "queued": "排队中"
+    },
+    "kind": {
+      "comment": "由评论触发",
+      "autopilot": "自动驾驶运行",
+      "chat": "聊天会话",
+      "quick_create": "快速创建的任务",
+      "direct": "直接分配",
+      "unknown": "已分配任务"
+    }
   }
 }

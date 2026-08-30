@@ -22,6 +22,7 @@ import { SkillsPage } from "@multica/views/skills";
 import { DesktopRuntimesPage } from "./components/desktop-runtimes-page";
 import { DesktopAgentsPage } from "./components/desktop-agents-page";
 import {
+  ActiveBoardPage,
   AiCreateAgentPage,
   ChooseCreateMethodPage,
   ManualCreateAgentPage,
@@ -184,6 +185,7 @@ export const appRoutes: RouteObject[] = [
             handle: { title: "Skill" },
           },
           { path: "agents", element: <DesktopAgentsPage />, handle: { title: "Agents" } },
+          { path: "active", element: <ActiveBoardPage />, handle: { title: "Active" } },
           {
             path: "agents/new",
             element: <ChooseCreateMethodPage />,

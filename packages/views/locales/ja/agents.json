@@ -937,5 +937,27 @@
   "actions": {
     "selected_other": "{{count}} 件選択中",
     "clear_selection": "選択を解除"
+  },
+  "active_board": {
+    "title": "稼働中",
+    "tagline": "エージェントが現在取り組んでいるすべてのタスク。",
+    "empty": "現在稼働中のエージェントはいません。",
+    "no_issue": "関連 Issue なし",
+    "view_transcript": "トランスクリプトを表示",
+    "waiting_for_activity": "アクティビティを待機中…",
+    "status": {
+      "running": "実行中",
+      "waiting_local_directory": "ディレクトリ待ち",
+      "dispatched": "ディスパッチ済み",
+      "queued": "キュー待ち"
+    },
+    "kind": {
+      "comment": "コメントによりトリガー",
+      "autopilot": "オートパイロット実行",
+      "chat": "チャットセッション",
+      "quick_create": "クイック作成の Issue",
+      "direct": "直接割り当て",
+      "unknown": "割り当てタスク"
+    }
   }
 }
