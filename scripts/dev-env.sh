@@ -481,6 +481,19 @@ process_group_id() {
   ps -p "$1" -o pgid= 2>/dev/null | tr -d ' ' || true
 }
 
+# True when $1 is $2 or has $2 somewhere in its parent chain. Turbo starts each
+# task in its own process group, so the Next listener never shares the
+# launcher's pgid; ancestry is the identity that survives that.
+process_descends_from() {
+  local pid=$1 ancestor=$2 depth=0
+  while [ -n "$pid" ] && [ "$pid" != "1" ] && [ "$pid" != "0" ] && [ "$depth" -lt 20 ]; do
+    [ "$pid" = "$ancestor" ] && return 0
+    pid="$(ps -p "$pid" -o ppid= 2>/dev/null | tr -d ' ' || true)"
+    depth=$((depth + 1))
+  done
+  return 1
+}
+
 listener_belongs_to_component() {
   local component=$1 port=$2 launcher listener recorded
   launcher="$(component_pid "$component" || true)"
@@ -488,7 +501,8 @@ listener_belongs_to_component() {
   [ -n "$launcher" ] && [ -n "$listener" ] || return 1
   recorded="$(cat "$(listener_pid_file "$component")" 2>/dev/null || true)"
   [ -n "$recorded" ] && [ "$listener" = "$recorded" ] && return 0
-  [ "$(process_group_id "$listener")" = "$launcher" ]
+  [ "$(process_group_id "$listener")" = "$launcher" ] && return 0
+  process_descends_from "$listener" "$launcher"
 }
 
 health_belongs_to_api() {
