@@ -82,6 +82,7 @@
     "copy_failed_toast": "Copy failed",
     "loading_older": "Loading older messages…",
     "quick_actions_heading": "Follow-up questions",
+    "quick_actions_aria": "Suggested follow-ups",
     "quick_actions_regenerate": "Regenerate suggestions",
     "quick_actions_regenerate_failed": "Couldn't refresh suggestions. Please try again."
   },
@@ -150,8 +151,8 @@
     "returning_subtitle": "Try asking",
     "chat_with_named": "Chat with {{name}}"
   },
-  "starter_prompts": {
-    "aria_label": "Suggested first actions",
+  "conversation_starters": {
+    "aria_label": "Conversation starters",
     "capabilities": {
       "label": "What can you help with?",
       "prompt": "What are you best at helping with? Give me a concise overview."
@@ -163,7 +164,8 @@
     "recommend": {
       "label": "Recommend an action",
       "prompt": "Review what you know about my workspace and recommend a useful first action."
-    }
+    },
+    "customize": "Customize starters"
   },
   "onboarding_cards": {
     "aria_label": "Ways to start",
