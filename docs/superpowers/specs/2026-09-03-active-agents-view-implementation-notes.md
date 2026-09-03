@@ -56,16 +56,34 @@ The command span uses `min-w-0` so long command text truncates inside its flex r
 
 The `/active` page uses `useQueries` with a module-level `combine` function, so step parsing across queries is memoized instead of recomputed on every render.
 
-## Stop button not wired
+## Stop button wired (fix wave, 2026-09-03)
 
-`onStop` exists as a prop shape but is not wired to anything; the Stop control stays hidden.
-No cancel-task mutation has been confirmed to exist for this flow, so wiring it was left out of v1.
+`onStop` is now wired: `useCancelTask(wsId)` in `packages/core/agents/use-cancel-task.ts` calls the existing `api.cancelTaskById(taskId)` and invalidates `agentTaskSnapshotKeys.all(wsId)` on settle.
+No confirmation dialog, matching the other `cancelTaskById` call sites.
 
 ## Real-app check not performed
 
 `make up` was not run against the actual app because a native `postgresql@14` install owns port 5432 on this machine, making the default `DATABASE_URL` unreachable.
 All Go verification instead ran against a scratch Docker Postgres (`pgvector/pgvector:pg17`) on port 15433, created and torn down per task.
 This is an open item: nobody has clicked through the real `/active` page end to end in this checkout.
+
+## Removed the "does not recompute" memo-guard test (fix wave, 2026-09-03)
+
+The hand-rolled `useQueries` mock deep-compared results itself, so it could return a stable reference even when the production `combine` was unstable, making the test unable to fail for the bug it was meant to guard.
+Its module-level `lastCombined` also leaked state between test cases.
+Deleted the test and the mock's memoization; the production `combine` fix in `active-board-page.tsx` is unaffected.
+
+## openTask resolved from candidates, not cards (fix wave, 2026-09-03)
+
+`openTask` in `active-board-page.tsx` now resolves from `candidates` (the snapshot-derived, transcript-independent list), not `cards` (the `sortBoardCards` output, which drops a completed task with no `waiting` steps yet).
+Resolving from `cards` meant a fresh load of `?task=<completed task>` could see no matching card before its messages fetch resolved, and the clearing effect would remove the param before the window opened.
+The window fetches its own messages, so it never needed the card to exist.
+
+## task_summary broadcasts task:progress, not task:running (fix wave, 2026-09-03)
+
+`maybeGenerateTaskSummaryAsync` in `task_summary.go` now re-broadcasts `protocol.EventTaskProgress` instead of `protocol.EventTaskRunning` after writing `pstack_summary`.
+Re-broadcasting `task:running` made `plugin_event_bridge.go`'s `EventTaskRunning` subscription fire a duplicate `task.started` webhook.
+`task:progress` still reaches the open board: it is not in `use-realtime-sync.ts`'s `specificEvents` exclusion set, so it falls through to the generic `task:` prefix handler (around line 887) that invalidates `agentTaskSnapshotKeys.list(wsId)`.
 
 ## Pre-existing gofmt finding
 
