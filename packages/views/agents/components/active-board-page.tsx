@@ -9,7 +9,7 @@ import { LIST_GRID_BOTTOM_CLEARANCE } from "@multica/ui/components/ui/list-grid"
 import { useWorkspaceId } from "@multica/core/hooks";
 import { agentTaskSnapshotOptions } from "@multica/core/agents";
 import { taskMessagesOptions } from "@multica/core/chat/queries";
-import type { AgentTask } from "@multica/core/types";
+import type { AgentTask, TaskMessagePayload } from "@multica/core/types";
 import { CollectionPageHeader } from "../../layout/collection-page";
 import { PAGE_GUTTER } from "../../layout/page-header";
 import { useNavigation } from "../../navigation";
@@ -29,6 +29,15 @@ import { AgentWindow } from "./agent-window";
 const TASK_PARAM = "task";
 const GRID_CLASS = "grid grid-cols-1 gap-4 md:grid-cols-2";
 
+const EMPTY_MESSAGES: TaskMessagePayload[] = [];
+
+// Defined outside the component so its reference is stable across renders;
+// `useQueries`'s `combine` option gives back a structurally shared result
+// only when the combiner itself does not change identity on every call.
+function combineMessages(results: { data?: TaskMessagePayload[] }[]): TaskMessagePayload[][] {
+  return results.map((r) => r.data ?? EMPTY_MESSAGES);
+}
+
 /**
  * Every agent working, or recently blocked on a person, as one grid of cards.
  * Clicking a card opens the agent window; the open task lives in `?task=` so
@@ -43,22 +52,26 @@ export function ActiveBoardPage() {
 
   // Holding a running task's messages cache is what lets its task:message
   // stream flow (MUL-6396). Recently finished tasks are fetched once so the
-  // board can tell whether their last words were a question.
-  const messageQueries = useQueries({
-    queries: candidates.map((task) => ({
-      ...taskMessagesOptions(task.id),
-      enabled: taskMessagesOptions(task.id).enabled !== false,
-    })),
+  // board can tell whether their last words were a question. `combine`
+  // structurally shares the returned array so an unrelated re-render (a card
+  // click, another task's websocket frame) does not force every task's
+  // transcript to rebuild below.
+  const messagesByIndex = useQueries({
+    queries: candidates.map((task) => {
+      const options = taskMessagesOptions(task.id);
+      return { ...options, enabled: options.enabled !== false };
+    }),
+    combine: combineMessages,
   });
 
   const stepsByTask = useMemo(() => {
     const out = new Map<string, TraceStep[]>();
     candidates.forEach((task, i) => {
-      const messages = (messageQueries[i]?.data ?? []) as Parameters<typeof buildTimeline>[0];
+      const messages = messagesByIndex[i] ?? EMPTY_MESSAGES;
       out.set(task.id, buildSteps(buildTimeline(messages)).filter((s) => s.kind !== "thinking"));
     });
     return out;
-  }, [candidates, messageQueries]);
+  }, [candidates, messagesByIndex]);
 
   const cards = useMemo(() => {
     const now = Date.now();
@@ -68,7 +81,9 @@ export function ActiveBoardPage() {
       return {
         task,
         waiting: isWaitingForInput(task, steps, now),
-        lastActivityAt: last?.startedAt ?? (last?.kind === "call" ? last.endedAt ?? null : null),
+        // buildSteps sets `startedAt` on every step it pushes, so there is no
+        // case where only `endedAt` is present.
+        lastActivityAt: last?.startedAt ?? null,
       };
     });
     return sortBoardCards(unsorted);

@@ -40,6 +40,18 @@ vi.mock("../../common/task-transcript/transcript-button", () => ({
   TranscriptButton: () => <button>transcript</button>,
 }));
 
+const buildStepsSpy = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("../../common/task-transcript/build-steps", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../common/task-transcript/build-steps")>();
+  return {
+    ...actual,
+    buildSteps: (...args: Parameters<typeof actual.buildSteps>) => {
+      buildStepsSpy.calls += 1;
+      return actual.buildSteps(...args);
+    },
+  };
+});
+
 const mockAgents = vi.hoisted(() => ({ current: [] as unknown[] }));
 const mockSnapshot = vi.hoisted(() => ({ current: [] as unknown[] }));
 const mockIssues = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
@@ -57,8 +69,28 @@ vi.mock("@tanstack/react-query", () => ({
     if (root === "task-messages") return { data: opts.enabled ? mockMessages.current : [], isLoading: false };
     return { data: undefined, isLoading: false };
   },
-  useQueries: ({ queries }: { queries: { queryKey: readonly unknown[]; enabled?: boolean }[] }) =>
-    queries.map((q) => ({ data: q.enabled === false ? [] : mockMessages.current, isLoading: false })),
+  // Mirrors real `useQueries({ combine })`: when the combined value is deeply
+  // unchanged from the previous call, the previous reference is returned so a
+  // caller's `useMemo` keyed on it does not re-run. This is what lets the
+  // "does not recompute" test below actually exercise the fix instead of
+  // trivially passing.
+  useQueries: (() => {
+    let lastCombined: unknown;
+    return ({
+      queries,
+      combine,
+    }: {
+      queries: { queryKey: readonly unknown[]; enabled?: boolean }[];
+      combine?: (results: { data: unknown[]; isLoading: boolean }[]) => unknown;
+    }) => {
+      const results = queries.map((q) => ({ data: q.enabled === false ? [] : mockMessages.current, isLoading: false }));
+      if (!combine) return results;
+      const next = combine(results);
+      if (JSON.stringify(next) === JSON.stringify(lastCombined)) return lastCombined;
+      lastCombined = next;
+      return next;
+    };
+  })(),
 }));
 
 import { ActiveBoardPage } from "./active-board-page";
@@ -90,6 +122,7 @@ describe("ActiveBoardPage", () => {
     mockSnapshot.current = [running, finished];
     navState.search = new URLSearchParams();
     navState.replace.mockReset();
+    buildStepsSpy.calls = 0;
   });
   afterEach(cleanup);
 
@@ -127,5 +160,20 @@ describe("ActiveBoardPage", () => {
     mockSnapshot.current = [];
     renderPage();
     expect(screen.getByText("No agents are working right now.")).toBeTruthy();
+  });
+
+  it("does not recompute transcript steps on a rerender with unchanged messages", () => {
+    const { rerender } = renderPage();
+    const callsAfterFirstRender = buildStepsSpy.calls;
+    expect(callsAfterFirstRender).toBeGreaterThan(0);
+    rerender(
+      <I18nProvider locale="en" resources={TEST_RESOURCES}>
+        <ActiveBoardPage />
+      </I18nProvider>,
+    );
+    // A rerender with the same snapshot and messages must not push the
+    // useQueries `combine` result to a new reference, so the useMemo keyed on
+    // it should not call buildSteps again.
+    expect(buildStepsSpy.calls).toBe(callsAfterFirstRender);
   });
 });
