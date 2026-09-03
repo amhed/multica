@@ -974,7 +974,7 @@
     },
     "waiting_for_you": "あなたの返信待ち",
     "waiting_for_you_count_other": "{{count}} 件があなたの返信待ち",
-    "stale_for": "{{duration}}間アクティビティなし",
+    "stale_for": "最後のアクティビティ: {{ago}}",
     "completed_ago": "{{ago}}に完了",
     "open_issue": "Issue を開く",
     "stop": "停止",

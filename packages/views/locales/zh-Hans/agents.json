@@ -974,7 +974,7 @@
     },
     "waiting_for_you": "等你回复",
     "waiting_for_you_count_other": "{{count}} 个等你回复",
-    "stale_for": "已 {{duration}} 无活动",
+    "stale_for": "上次活动：{{ago}}",
     "completed_ago": "{{ago}}完成",
     "open_issue": "打开任务",
     "stop": "停止",

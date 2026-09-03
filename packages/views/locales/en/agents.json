@@ -999,7 +999,7 @@
     "waiting_for_you": "Waiting for you",
     "waiting_for_you_count_one": "{{count}} waiting for you",
     "waiting_for_you_count_other": "{{count}} waiting for you",
-    "stale_for": "No activity for {{duration}}",
+    "stale_for": "Last activity {{ago}}",
     "completed_ago": "finished {{ago}}",
     "open_issue": "Open issue",
     "stop": "Stop",

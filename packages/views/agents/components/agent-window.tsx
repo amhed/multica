@@ -102,7 +102,7 @@ function AgentWindowBody({ wsId, task }: { wsId: string; task: AgentTask }) {
         </div>
       </div>
 
-      <div ref={scrollerRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-5">
+      <div ref={scrollerRef} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [&>*]:shrink-0 px-5 py-5">
         <div className="flex max-w-[70%] flex-col items-end gap-1 self-end">
           <span className="text-micro text-muted-foreground">
             {t(($) => $.active_board.window.trigger_label_unknown)} {timeAgo(task.created_at)}

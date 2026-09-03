@@ -143,7 +143,7 @@ export function ActiveTaskCard({
           <span className="min-w-0 flex-1 truncate">
             {stale && lastActivityAt
               ? t(($) => $.active_board.stale_for, {
-                  duration: timeAgo(lastActivityAt),
+                  ago: timeAgo(lastActivityAt),
                 })
               : description
                 ? t(($) => $.active_board.step[description.verb], {
@@ -172,6 +172,7 @@ export function ActiveTaskCard({
               variant="secondary"
               size="sm"
               render={<AppLink href={p.issueDetail(task.issue_id)} />}
+              nativeButton={false}
             >
               {t(($) => $.active_board.open_issue)}
             </Button>

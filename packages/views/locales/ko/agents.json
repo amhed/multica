@@ -974,7 +974,7 @@
     },
     "waiting_for_you": "회신 대기 중",
     "waiting_for_you_count_other": "{{count}}개 회신 대기 중",
-    "stale_for": "{{duration}} 동안 활동 없음",
+    "stale_for": "마지막 활동: {{ago}}",
     "completed_ago": "{{ago}} 완료",
     "open_issue": "이슈 열기",
     "stop": "중지",
