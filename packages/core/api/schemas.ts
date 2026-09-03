@@ -1140,7 +1140,6 @@ const IssueTriggerPreviewItemSchema = z.object({
   issue_id: z.string(),
   agent_id: z.string().default(""),
   source: z.string().default(""),
-  handoff_supported: z.boolean().default(false),
 }).loose();
 
 export const IssueTriggerPreviewSchema = z.object({
@@ -1834,7 +1833,6 @@ export const AgentTaskSchema = z.object({
   coalesced_comment_ids: OptionalStringArraySchema,
   delivered_comment_ids: OptionalStringArraySchema,
   trigger_summary: z.string().optional(),
-  handoff_note: z.string().optional(),
   kind: z.string().optional(),
   work_dir: z.string().optional().catch(undefined),
   relative_work_dir: z.string().optional().catch(undefined),
