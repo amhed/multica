@@ -164,9 +164,12 @@ func (s *TaskService) maybeGenerateTaskSummaryAsync(task db.AgentTaskQueue) {
 			slog.Warn("task summary write skipped", "task_id", util.UUIDToString(task.ID), "error", err)
 			return
 		}
-		// Re-broadcast the running transition with the enriched row: clients
-		// treat task:running as "refetch the snapshot", which is exactly what
-		// an open board needs to pick up the headline.
-		s.broadcastTaskEvent(ctx, protocol.EventTaskRunning, updated)
+		// Broadcast a progress event with the enriched row: the generic
+		// task-prefix invalidate path in useRealtimeSync refetches the
+		// snapshot on any task:* event, which is exactly what an open board
+		// needs to pick up the headline. Re-broadcasting task:running here
+		// would fire a second task.started webhook through
+		// plugin_event_bridge.go, which subscribes EventTaskRunning.
+		s.broadcastTaskEvent(ctx, protocol.EventTaskProgress, updated)
 	}()
 }
