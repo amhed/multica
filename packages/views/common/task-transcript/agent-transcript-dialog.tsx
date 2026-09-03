@@ -117,6 +117,12 @@ interface AgentTranscriptDialogProps {
   agentName: string;
   isLive?: boolean;
   /**
+   * Open a finished transcript scrolled to its last step. Live chronological
+   * transcripts already do this; a caller reading a run for its ending (the
+   * Active board's "waiting for you" window) wants the same for terminal runs.
+   */
+  startAtEnd?: boolean;
+  /**
    * Optional content rendered between the header chips and the event list.
    * Used by autopilot run rows to surface the inbound webhook trigger
    * payload so it's visible regardless of whether the agent echoes it.
@@ -304,6 +310,7 @@ export function AgentTranscriptDialog({
   items,
   agentName,
   isLive = false,
+  startAtEnd = false,
   headerSlot,
 }: AgentTranscriptDialogProps) {
   const { t } = useT("agents");
@@ -1228,7 +1235,7 @@ export function AgentTranscriptDialog({
                 // step (#5921); the per-listEpoch remount re-applies this after
                 // task / sort / filter changes.
                 initialTopMostItemIndex={
-                  isLive && sortDirection !== "newest_first"
+                  (isLive || startAtEnd) && sortDirection !== "newest_first"
                     ? { index: "LAST", align: "end" }
                     : 0
                 }

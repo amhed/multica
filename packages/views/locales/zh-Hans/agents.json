@@ -958,7 +958,6 @@
     "running_count_other": "{{count}} 个运行中",
     "waiting_count_other": "{{count}} 个排队中",
     "no_issue": "未关联任务",
-    "view_transcript": "查看执行记录",
     "waiting_for_activity": "等待活动…",
     "status": {
       "running": "运行中",
@@ -990,15 +989,6 @@
       "used": "使用了 {{object}}",
       "said": "{{object}}",
       "errored": "错误：{{object}}"
-    },
-    "window": {
-      "title": "{{agent}} · {{issue}}",
-      "trigger_label_unknown": "分配了该任务",
-      "files_changed_other": "更改了 {{count}} 个文件",
-      "other_steps_other": "另外 {{count}} 个步骤",
-      "composer_placeholder": "在 {{issue}} 中回复 {{agent}}…",
-      "composer_running_hint": "智能体会在本次运行结束后处理这条评论。",
-      "send": "发送"
     }
   }
 }

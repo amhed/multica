@@ -111,3 +111,14 @@ Two textual conflicts, both test blocks upstream had deleted; upstream's deletio
 One semantic conflict: `handoff_note` no longer exists on the client `AgentTask` type, so the headline chain is now generated headline, then trigger summary, then kind.
 The server still reads the legacy `handoff_note` column into the summary prompt, which upstream preserved.
 Upstream also added its own `450_` migration; the two files record distinct versions and both apply.
+
+## Agent window is the transcript dialog (2026-09-03, post-deploy feedback)
+
+The conversation-style window (bubbles, folded file/command blocks, comment composer) was replaced by the shared `AgentTranscriptDialog` after the first real use.
+The transcript already carries everything the window re-derived, formatted better, and the board is a read-only lens: replies go through the issue.
+`AgentWindow` is now a thin wrapper that loads the task's messages and renders the transcript dialog with a new `startAtEnd` prop, so a finished "waiting for you" run opens at its closing question the same way a live run opens at its latest step.
+`agent-window-conversation.ts`, the `active_board.window.*` locale keys, and the card's separate transcript icon button (now redundant with the card click) were removed.
+
+`docker-compose.selfhost.yml` did not map `MULTICA_LLM_SUMMARY_MODEL` into the backend service; `scripts/selfhost-config.test.sh` catches exactly this and had not been run in the pre-deploy verification.
+Fixed in the same change.
+On segurohq the backend logged `llm ... enabled=false` because `MULTICA_LLM_API_KEY` is empty in `.env`, so no headlines were generated and cards fell back to the trigger text as designed.

@@ -53,9 +53,6 @@ vi.mock("./agent-window", () => ({
     task ? <div role="dialog">window:{task.id}</div> : null,
 }));
 vi.mock("../../common/actor-avatar", () => ({ ActorAvatar: () => <span /> }));
-vi.mock("../../common/task-transcript/transcript-button", () => ({
-  TranscriptButton: () => <button>transcript</button>,
-}));
 
 const mockAgents = vi.hoisted(() => ({ current: [] as unknown[] }));
 const mockSnapshot = vi.hoisted(() => ({ current: [] as unknown[] }));

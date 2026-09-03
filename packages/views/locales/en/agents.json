@@ -982,7 +982,6 @@
     "waiting_count_one": "{{count}} queued",
     "waiting_count_other": "{{count}} queued",
     "no_issue": "No linked issue",
-    "view_transcript": "View transcript",
     "waiting_for_activity": "Waiting for activity…",
     "status": {
       "running": "Running",
@@ -1015,17 +1014,6 @@
       "used": "Used {{object}}",
       "said": "{{object}}",
       "errored": "Error: {{object}}"
-    },
-    "window": {
-      "title": "{{agent}} on {{issue}}",
-      "trigger_label_unknown": "Assigned the issue",
-      "files_changed_one": "{{count}} file changed",
-      "files_changed_other": "{{count}} files changed",
-      "other_steps_one": "{{count}} other step",
-      "other_steps_other": "{{count}} other steps",
-      "composer_placeholder": "Comment on {{issue}} as a reply to {{agent}}…",
-      "composer_running_hint": "The agent picks this up after its current run.",
-      "send": "Send"
     }
   }
 }

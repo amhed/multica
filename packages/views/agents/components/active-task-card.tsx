@@ -10,7 +10,6 @@ import { useWorkspacePaths } from "@multica/core/paths";
 import type { AgentTask } from "@multica/core/types";
 import { ActorAvatar } from "../../common/actor-avatar";
 import type { TraceStep } from "../../common/task-transcript/build-steps";
-import { TranscriptButton } from "../../common/task-transcript/transcript-button";
 import { AppLink } from "../../navigation";
 import { useT, useTimeAgo } from "../../i18n";
 import {
@@ -176,14 +175,6 @@ export function ActiveTaskCard({
             >
               {t(($) => $.active_board.open_issue)}
             </Button>
-          )}
-          {agent && (
-            <TranscriptButton
-              task={task}
-              agentName={agent.name}
-              isLive={isRunning}
-              title={t(($) => $.active_board.view_transcript)}
-            />
           )}
           {waiting ? (
             <Button

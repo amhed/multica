@@ -958,7 +958,6 @@
     "running_count_other": "{{count}}개 실행 중",
     "waiting_count_other": "{{count}}개 대기열",
     "no_issue": "연결된 이슈 없음",
-    "view_transcript": "기록 보기",
     "waiting_for_activity": "활동 대기 중…",
     "status": {
       "running": "실행 중",
@@ -990,15 +989,6 @@
       "used": "{{object}} 사용",
       "said": "{{object}}",
       "errored": "오류: {{object}}"
-    },
-    "window": {
-      "title": "{{agent}} · {{issue}}",
-      "trigger_label_unknown": "이슈 할당",
-      "files_changed_other": "파일 {{count}}개 변경",
-      "other_steps_other": "기타 {{count}}단계",
-      "composer_placeholder": "{{issue}}에서 {{agent}}에게 답장…",
-      "composer_running_hint": "에이전트는 현재 실행이 끝난 뒤 이 댓글을 처리합니다.",
-      "send": "보내기"
     }
   }
 }
