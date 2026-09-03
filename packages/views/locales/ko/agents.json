@@ -954,7 +954,7 @@
     "title": "진행 중",
     "empty": "현재 작업 중인 에이전트가 없습니다.",
     "running_count_other": "{{count}}개 실행 중",
-    "waiting_count_other": "{{count}}개 대기 중",
+    "waiting_count_other": "{{count}}개 대기열",
     "no_issue": "연결된 이슈 없음",
     "view_transcript": "기록 보기",
     "waiting_for_activity": "활동 대기 중…",
@@ -973,6 +973,7 @@
       "unknown": "할당된 태스크"
     },
     "waiting_for_you": "회신 대기 중",
+    "waiting_for_you_count_other": "{{count}}개 회신 대기 중",
     "stale_for": "{{duration}} 동안 활동 없음",
     "completed_ago": "{{ago}} 완료",
     "open_issue": "이슈 열기",
@@ -990,7 +991,6 @@
     },
     "window": {
       "title": "{{agent}} · {{issue}}",
-      "trigger_label": "{{actor}} · 이슈 할당",
       "trigger_label_unknown": "이슈 할당",
       "files_changed_other": "파일 {{count}}개 변경",
       "other_steps_other": "기타 {{count}}단계",

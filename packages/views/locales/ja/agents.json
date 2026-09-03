@@ -954,7 +954,7 @@
     "title": "稼働中",
     "empty": "現在稼働中のエージェントはいません。",
     "running_count_other": "{{count}} 件実行中",
-    "waiting_count_other": "{{count}} 件待機中",
+    "waiting_count_other": "{{count}} 件が待機中",
     "no_issue": "関連 Issue なし",
     "view_transcript": "トランスクリプトを表示",
     "waiting_for_activity": "アクティビティを待機中…",
@@ -973,6 +973,7 @@
       "unknown": "割り当てタスク"
     },
     "waiting_for_you": "あなたの返信待ち",
+    "waiting_for_you_count_other": "{{count}} 件があなたの返信待ち",
     "stale_for": "{{duration}}間アクティビティなし",
     "completed_ago": "{{ago}}に完了",
     "open_issue": "Issue を開く",
@@ -990,7 +991,6 @@
     },
     "window": {
       "title": "{{agent}} · {{issue}}",
-      "trigger_label": "{{actor}} · Issue を割り当て",
       "trigger_label_unknown": "Issue を割り当て",
       "files_changed_other": "{{count}} ファイルを変更",
       "other_steps_other": "その他 {{count}} ステップ",

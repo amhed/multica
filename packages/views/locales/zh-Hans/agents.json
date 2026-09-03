@@ -954,7 +954,7 @@
     "title": "进行中",
     "empty": "当前没有智能体在工作。",
     "running_count_other": "{{count}} 个运行中",
-    "waiting_count_other": "{{count}} 个等待中",
+    "waiting_count_other": "{{count}} 个排队中",
     "no_issue": "未关联任务",
     "view_transcript": "查看执行记录",
     "waiting_for_activity": "等待活动…",
@@ -973,6 +973,7 @@
       "unknown": "已分配任务"
     },
     "waiting_for_you": "等你回复",
+    "waiting_for_you_count_other": "{{count}} 个等你回复",
     "stale_for": "已 {{duration}} 无活动",
     "completed_ago": "{{ago}}完成",
     "open_issue": "打开任务",
@@ -990,7 +991,6 @@
     },
     "window": {
       "title": "{{agent}} · {{issue}}",
-      "trigger_label": "{{actor}} · 分配了该任务",
       "trigger_label_unknown": "分配了该任务",
       "files_changed_other": "更改了 {{count}} 个文件",
       "other_steps_other": "另外 {{count}} 个步骤",

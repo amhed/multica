@@ -977,8 +977,8 @@
     "empty": "No agents are working right now.",
     "running_count_one": "{{count}} running",
     "running_count_other": "{{count}} running",
-    "waiting_count_one": "{{count}} waiting",
-    "waiting_count_other": "{{count}} waiting",
+    "waiting_count_one": "{{count}} queued",
+    "waiting_count_other": "{{count}} queued",
     "no_issue": "No linked issue",
     "view_transcript": "View transcript",
     "waiting_for_activity": "Waiting for activity…",
@@ -997,6 +997,8 @@
       "unknown": "Assigned task"
     },
     "waiting_for_you": "Waiting for you",
+    "waiting_for_you_count_one": "{{count}} waiting for you",
+    "waiting_for_you_count_other": "{{count}} waiting for you",
     "stale_for": "No activity for {{duration}}",
     "completed_ago": "finished {{ago}}",
     "open_issue": "Open issue",
@@ -1014,7 +1016,6 @@
     },
     "window": {
       "title": "{{agent}} on {{issue}}",
-      "trigger_label": "{{actor}} · assigned the issue",
       "trigger_label_unknown": "Assigned the issue",
       "files_changed_one": "{{count}} file changed",
       "files_changed_other": "{{count}} files changed",
