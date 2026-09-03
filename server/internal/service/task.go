@@ -77,6 +77,14 @@ type TaskService struct {
 	// state for a self-hosted deployment with no MULTICA_LLM_* configuration.
 	// Wired in router.go from the same *llm.Client that backs chat auto-titling.
 	QuickActions ChatQuickActionsLLM
+	// Summaries writes the one-time active-board headline (pstack_summary)
+	// when a task starts. Optional: nil or a disabled client leaves the column
+	// NULL and the board falls back to the trigger text. Wired in handler.go
+	// from the same *llm.Client that backs chat auto-titling.
+	Summaries TaskSummaryLLM
+	// SummaryModel overrides the client's default model for headlines. Maps to
+	// MULTICA_LLM_SUMMARY_MODEL; empty means the client default.
+	SummaryModel string
 	// quickActionsInFlight (chat session id -> struct{}{}) and
 	// quickActionsRunning admit suggestion passes: one per session, and a
 	// process-wide ceiling. Both zero values are usable, so a TaskService built
@@ -4109,6 +4117,7 @@ func (s *TaskService) StartTask(ctx context.Context, taskID pgtype.UUID) (*db.Ag
 	// the issue-card agent activity indicator) lags by up to half a minute
 	// on the transition users care about most.
 	s.broadcastTaskEvent(ctx, protocol.EventTaskRunning, task)
+	s.maybeGenerateTaskSummaryAsync(task)
 	return &task, nil
 }
 
