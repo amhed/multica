@@ -18,23 +18,6 @@ const STATUS_RANK: Record<string, number> = {
   queued: 3,
 };
 
-/**
- * Active tasks from the agent task snapshot, running first, then the most
- * recently started within each status. The snapshot also carries each agent's
- * last terminal task; those are dropped here.
- */
-export function selectActiveTasks(snapshot: readonly AgentTask[]): AgentTask[] {
-  return snapshot
-    .filter((t) => ACTIVE_STATUSES.has(t.status))
-    .sort((a, b) => {
-      const rank = (STATUS_RANK[a.status] ?? 9) - (STATUS_RANK[b.status] ?? 9);
-      if (rank !== 0) return rank;
-      const aAt = a.started_at ?? a.dispatched_at ?? a.created_at;
-      const bAt = b.started_at ?? b.dispatched_at ?? b.created_at;
-      return bAt.localeCompare(aAt);
-    });
-}
-
 export type TaskSummary =
   | { source: "pstack_summary" | "handoff_note" | "trigger_summary"; text: string }
   | { source: "kind"; kind: NonNullable<AgentTask["kind"]> | "unknown" };
@@ -52,38 +35,6 @@ export function taskSummary(task: AgentTask): TaskSummary {
   const trigger = task.trigger_summary?.trim();
   if (trigger) return { source: "trigger_summary", text: trigger };
   return { source: "kind", kind: task.kind ?? "unknown" };
-}
-
-export interface ActiveTaskGroup {
-  /** Issue id, or the task id for tasks with no linked issue. */
-  key: string;
-  issueId: string;
-  tasks: AgentTask[];
-}
-
-/**
- * Fold tasks on the same issue into one group so a running run and its queued
- * follow-up read as one unit. Input order is preserved: a group sits where its
- * first (highest-ranked) task sat.
- */
-export function groupActiveTasks(tasks: readonly AgentTask[]): ActiveTaskGroup[] {
-  const groups: ActiveTaskGroup[] = [];
-  const byIssue = new Map<string, ActiveTaskGroup>();
-  for (const task of tasks) {
-    if (!task.issue_id) {
-      groups.push({ key: task.id, issueId: "", tasks: [task] });
-      continue;
-    }
-    const existing = byIssue.get(task.issue_id);
-    if (existing) {
-      existing.tasks.push(task);
-      continue;
-    }
-    const group = { key: task.issue_id, issueId: task.issue_id, tasks: [task] };
-    byIssue.set(task.issue_id, group);
-    groups.push(group);
-  }
-  return groups;
 }
 
 /**

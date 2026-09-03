@@ -953,8 +953,6 @@
   "active_board": {
     "title": "稼働中",
     "empty": "現在稼働中のエージェントはいません。",
-    "active_ago": "最終アクティビティ {{ago}}",
-    "started_ago": "開始 {{ago}}",
     "running_count_other": "{{count}} 件実行中",
     "waiting_count_other": "{{count}} 件待機中",
     "no_issue": "関連 Issue なし",

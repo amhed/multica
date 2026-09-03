@@ -975,8 +975,6 @@
   "active_board": {
     "title": "Active",
     "empty": "No agents are working right now.",
-    "active_ago": "active {{ago}}",
-    "started_ago": "started {{ago}}",
     "running_count_one": "{{count}} running",
     "running_count_other": "{{count}} running",
     "waiting_count_one": "{{count}} waiting",

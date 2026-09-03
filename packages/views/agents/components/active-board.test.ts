@@ -5,12 +5,10 @@ import type { TraceStep } from "../../common/task-transcript/build-steps";
 import {
   activeCounts,
   describeStep,
-  groupActiveTasks,
   isStale,
   isWaitingForInput,
   plainSummary,
   RECENT_TERMINAL_MS,
-  selectActiveTasks,
   selectBoardTasks,
   sortBoardCards,
   taskSummary,
@@ -35,27 +33,6 @@ function task(over: Partial<AgentTask>): AgentTask {
   } as AgentTask;
 }
 
-describe("selectActiveTasks", () => {
-  it("drops terminal tasks and orders running before waiting before queued", () => {
-    const out = selectActiveTasks([
-      task({ id: "done", status: "completed" }),
-      task({ id: "queued", status: "queued" }),
-      task({ id: "waiting", status: "waiting_local_directory" }),
-      task({ id: "failed", status: "failed" }),
-      task({ id: "running", status: "running" }),
-    ]);
-    expect(out.map((t) => t.id)).toEqual(["running", "waiting", "queued"]);
-  });
-
-  it("puts the most recently started task first within a status", () => {
-    const out = selectActiveTasks([
-      task({ id: "old", started_at: "2026-08-29T09:00:00Z" }),
-      task({ id: "new", started_at: "2026-08-29T11:00:00Z" }),
-    ]);
-    expect(out.map((t) => t.id)).toEqual(["new", "old"]);
-  });
-});
-
 describe("taskSummary", () => {
   it("prefers the handoff note, then the trigger summary", () => {
     expect(taskSummary(task({ handoff_note: "Fix it", trigger_summary: "cmt" }))).toEqual({
@@ -71,22 +48,6 @@ describe("taskSummary", () => {
   it("falls back to the task kind when no text is available", () => {
     expect(taskSummary(task({ kind: "direct" }))).toEqual({ source: "kind", kind: "direct" });
     expect(taskSummary(task({}))).toEqual({ source: "kind", kind: "unknown" });
-  });
-});
-
-describe("groupActiveTasks", () => {
-  it("folds same-issue tasks into one group at the first task's position", () => {
-    const out = groupActiveTasks([
-      task({ id: "a", issue_id: "i1", status: "running" }),
-      task({ id: "b", issue_id: "i2", status: "running" }),
-      task({ id: "c", issue_id: "i1", status: "queued" }),
-      task({ id: "d", issue_id: "" }),
-    ]);
-    expect(out.map((g) => [g.key, g.tasks.map((t) => t.id)])).toEqual([
-      ["i1", ["a", "c"]],
-      ["i2", ["b"]],
-      ["d", ["d"]],
-    ]);
   });
 });
 
