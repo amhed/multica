@@ -7,7 +7,7 @@ import { cn } from "@multica/ui/lib/utils";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { LIST_GRID_BOTTOM_CLEARANCE } from "@multica/ui/components/ui/list-grid";
 import { useWorkspaceId } from "@multica/core/hooks";
-import { agentTaskSnapshotOptions } from "@multica/core/agents";
+import { agentTaskSnapshotOptions, useCancelTask } from "@multica/core/agents";
 import { taskMessagesOptions } from "@multica/core/chat/queries";
 import type { AgentTask, TaskMessagePayload } from "@multica/core/types";
 import { CollectionPageHeader } from "../../layout/collection-page";
@@ -27,7 +27,7 @@ import { ActiveTaskCard } from "./active-task-card";
 import { AgentWindow } from "./agent-window";
 
 const TASK_PARAM = "task";
-const GRID_CLASS = "grid grid-cols-1 gap-4 md:grid-cols-2";
+const GRID_CLASS = "grid grid-cols-1 gap-4 min-[900px]:grid-cols-2";
 
 const EMPTY_MESSAGES: TaskMessagePayload[] = [];
 
@@ -47,6 +47,7 @@ export function ActiveBoardPage() {
   const { t } = useT("agents");
   const wsId = useWorkspaceId();
   const nav = useNavigation();
+  const cancelTask = useCancelTask(wsId);
   const { data: snapshot = [], isLoading } = useQuery(agentTaskSnapshotOptions(wsId));
   const candidates = useMemo(() => selectBoardTasks(snapshot), [snapshot]);
 
@@ -89,10 +90,16 @@ export function ActiveBoardPage() {
     return sortBoardCards(unsorted);
   }, [candidates, stepsByTask]);
 
+  // Resolved from `candidates` (snapshot-derived), not `cards` (the
+  // transcript-dependent `sortBoardCards` output): a card only exists once its
+  // messages fetch has resolved and decided whether the task is waiting, so a
+  // fresh load of `?task=<id>` for a task whose messages haven't loaded yet
+  // would otherwise see no card and clear the param before the window could
+  // open. The window fetches its own messages, so it doesn't need the card.
   const openTaskId = nav.searchParams.get(TASK_PARAM);
   const openTask: AgentTask | null = useMemo(
-    () => cards.find((c) => c.task.id === openTaskId)?.task ?? null,
-    [cards, openTaskId],
+    () => candidates.find((t) => t.id === openTaskId) ?? null,
+    [candidates, openTaskId],
   );
 
   const setTaskParam = useCallback(
@@ -120,7 +127,7 @@ export function ActiveBoardPage() {
       : [
           t(($) => $.active_board.running_count, { count: counts.running }),
           counts.waiting > 0 ? t(($) => $.active_board.waiting_count, { count: counts.waiting }) : null,
-          waitingCount > 0 ? `${waitingCount} ${t(($) => $.active_board.waiting_for_you).toLowerCase()}` : null,
+          waitingCount > 0 ? t(($) => $.active_board.waiting_for_you_count, { count: waitingCount }) : null,
         ]
           .filter(Boolean)
           .join(" · ");
@@ -151,6 +158,7 @@ export function ActiveBoardPage() {
                 card={card}
                 lastStep={stepsByTask.get(card.task.id)?.at(-1) ?? null}
                 onOpen={(id) => setTaskParam(id)}
+                onStop={(id) => cancelTask.mutate(id)}
               />
             ))}
           </div>
