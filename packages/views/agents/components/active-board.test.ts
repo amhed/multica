@@ -87,6 +87,25 @@ describe("plainSummary", () => {
   });
 });
 
+describe("taskSummary with pstack_summary", () => {
+  it("prefers the generated headline over the handoff note and trigger", () => {
+    expect(
+      taskSummary(task({ pstack_summary: "Adds a flag.", handoff_note: "note", trigger_summary: "trigger" })),
+    ).toEqual({ source: "pstack_summary", text: "Adds a flag." });
+  });
+
+  it("ignores a blank or missing headline", () => {
+    expect(taskSummary(task({ pstack_summary: "   ", handoff_note: "note" }))).toEqual({
+      source: "handoff_note",
+      text: "note",
+    });
+    expect(taskSummary(task({ pstack_summary: null, trigger_summary: "trigger" }))).toEqual({
+      source: "trigger_summary",
+      text: "trigger",
+    });
+  });
+});
+
 describe("activeCounts / isStale", () => {
   it("splits running from everything else", () => {
     expect(

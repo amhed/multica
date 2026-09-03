@@ -324,6 +324,12 @@ export interface AgentTask {
   /** Set when an issue comment triggered this task (@mention or assignee comment). */
   trigger_comment_id?: string;
   /**
+   * One-time, model-written headline for the Active board: what the task is
+   * set to do. Null or absent until the server has generated it, or forever
+   * on deployments without an LLM configured. Fork-specific field.
+   */
+  pstack_summary?: string | null;
+  /**
    * Earlier comment IDs folded into this run before it was claimed. This does
    * not include `trigger_comment_id`, which remains the run's newest trigger.
    * Their unique union is the queued coverage plan; claimed-task consumers

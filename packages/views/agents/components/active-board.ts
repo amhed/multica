@@ -34,15 +34,17 @@ export function selectActiveTasks(snapshot: readonly AgentTask[]): AgentTask[] {
 }
 
 export type TaskSummary =
-  | { source: "handoff_note" | "trigger_summary"; text: string }
+  | { source: "pstack_summary" | "handoff_note" | "trigger_summary"; text: string }
   | { source: "kind"; kind: NonNullable<AgentTask["kind"]> | "unknown" };
 
 /**
- * The best available one-liner for what a task is about. The assigner's note
- * wins over the triggering comment; with neither, the caller labels the task
- * by how it was created.
+ * The best available one-liner for what a task is about. The generated
+ * headline wins; then the assigner's note; then the triggering comment. With
+ * none of those, the caller labels the task by how it was created.
  */
 export function taskSummary(task: AgentTask): TaskSummary {
+  const generated = task.pstack_summary?.trim();
+  if (generated) return { source: "pstack_summary", text: generated };
   const note = task.handoff_note?.trim();
   if (note) return { source: "handoff_note", text: note };
   const trigger = task.trigger_summary?.trim();
