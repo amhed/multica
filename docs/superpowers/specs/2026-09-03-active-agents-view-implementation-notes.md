@@ -95,3 +95,11 @@ This predates the `active-agents-view` branch — unchanged since `main` — and
 `TestDocumentedConsumersAreTheOnlyCallers` in `server/pkg/llm/outbound_contract_test.go` failed because `task_summary.go` calls `GenerateText` but was never added to the disclosed consumer inventory.
 Added it to `documentedConsumers`, the `pkg/llm` package doc comment, `.env.example`, and all four `environment-variables*.mdx` locales.
 The disclosed content: the issue identifier and title, the first 1500 characters of the issue description, the task's trigger summary, and the handoff note.
+
+## Real-app check performed (2026-09-03 evening)
+
+The native postgresql@14 was stopped for the session so `make up` could bind 5432; it is restarted afterwards.
+Seeded four tasks against real agents and issues in the dev database; running tasks needed the runtime's `last_seen_at` in the future or the offline sweeper failed them within seconds.
+Verified in Chrome: grid with the waiting card first, generated headline, templated "right now" line, stale tone, click-through with `?task=`, deep link straight to a completed task, Escape and backdrop close, long command truncation, Reply posting a comment (201), Stop cancelling a task.
+Found and fixed: the Open issue link button needed `nativeButton={false}`; conversation blocks shrank inside the scroller (now `shrink-0`); the stale line read "No activity for 24m ago" and now reads "Last activity 24m ago"; focus left the composer after Send, so Escape hit the transcript tooltip first (now refocused).
+Known v1 limit confirmed live: only an agent's newest terminal task can appear as waiting, because the snapshot carries one terminal task per agent.
