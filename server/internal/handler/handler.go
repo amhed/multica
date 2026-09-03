@@ -133,10 +133,12 @@ type Config struct {
 	//   - LLMAPIKey       -> MULTICA_LLM_API_KEY
 	//   - LLMBaseURL       -> MULTICA_LLM_BASE_URL (OpenAI or any compatible gateway)
 	//   - LLMDefaultModel  -> MULTICA_LLM_DEFAULT_MODEL (used when a request omits `model`)
+	//   - LLMSummaryModel  -> MULTICA_LLM_SUMMARY_MODEL (active-board headlines; empty = LLMDefaultModel)
 	//   - LLMMaxRetries    -> MULTICA_LLM_MAX_RETRIES (transport retry budget)
 	LLMAPIKey       string
 	LLMBaseURL      string
 	LLMDefaultModel string
+	LLMSummaryModel string
 	// LLMMaxRetries is the parsed MULTICA_LLM_MAX_RETRIES budget. nil means
 	// unset (llm.DefaultMaxRetries applies); llm.Retries(0) disables retries.
 	// The type carries the validation: it can only be built through llm.Retries,
@@ -442,6 +444,10 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 	// backs auto-titling. A deployment with no MULTICA_LLM_* configuration gets
 	// a disabled client, which turns the feature off rather than failing.
 	taskSvc.QuickActions = llmClient
+	// Active-board headlines share the client; only the model may differ so a
+	// cheaper model can be pointed at this high-volume, low-stakes call.
+	taskSvc.Summaries = llmClient
+	taskSvc.SummaryModel = cfg.LLMSummaryModel
 	h := &Handler{
 		Queries:                      queries,
 		DB:                           executor,
