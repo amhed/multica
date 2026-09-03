@@ -89,3 +89,9 @@ Re-broadcasting `task:running` made `plugin_event_bridge.go`'s `EventTaskRunning
 
 `gofmt -l` flags `server/internal/handler/issue_table_query.go` (and several other unrelated files).
 This predates the `active-agents-view` branch — unchanged since `main` — and was left alone.
+
+## task_summary.go was an undisclosed LLM consumer (fix wave, 2026-09-03)
+
+`TestDocumentedConsumersAreTheOnlyCallers` in `server/pkg/llm/outbound_contract_test.go` failed because `task_summary.go` calls `GenerateText` but was never added to the disclosed consumer inventory.
+Added it to `documentedConsumers`, the `pkg/llm` package doc comment, `.env.example`, and all four `environment-variables*.mdx` locales.
+The disclosed content: the issue identifier and title, the first 1500 characters of the issue description, the task's trigger summary, and the handoff note.
