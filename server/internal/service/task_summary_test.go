@@ -56,10 +56,11 @@ func TestBuildTaskSummaryPromptTruncatesDescription(t *testing.T) {
 
 func TestSanitizeTaskSummary(t *testing.T) {
 	cases := map[string]string{
-		"  Adding   a flag.\n\nThen tests.  ": "Adding a flag. Then tests.",
-		"**Bold** and `code` and # heading":   "Bold and code and heading",
-		"Summary: Adding a flag.":             "Adding a flag.",
-		"\n\t ":                               "",
+		"  Adding   a flag.\n\nThen tests.  ":     "Adding a flag. Then tests.",
+		"**Bold** and `code` and # heading":       "Bold and code and heading",
+		"Summary: Adding a flag.":                 "Adding a flag.",
+		"\n\t ":                                   "",
+		"Refactors C# service layer for clarity.": "Refactors C# service layer for clarity.",
 	}
 	for in, want := range cases {
 		if got := sanitizeTaskSummary(in); got != want {

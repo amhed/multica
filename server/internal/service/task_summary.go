@@ -81,14 +81,14 @@ var (
 	summaryWhitespace = regexp.MustCompile(`\s+`)
 	summaryBold       = regexp.MustCompile(`\*\*([^*]+)\*\*`)
 	summaryCode       = regexp.MustCompile("`([^`]*)`")
-	summaryHeading    = regexp.MustCompile(`#+\s*`)
+	summaryHashPrefix = regexp.MustCompile(`(^|\s)#+\s*`)
 	summaryPreamble   = regexp.MustCompile(`(?i)^(summary|headline)\s*:\s*`)
 )
 
 // sanitizeTaskSummary turns raw model output into the stored headline: markdown
 // stripped, whitespace collapsed, preamble removed, capped at taskSummaryMaxRunes.
 func sanitizeTaskSummary(raw string) string {
-	s := summaryHeading.ReplaceAllString(raw, "")
+	s := summaryHashPrefix.ReplaceAllString(raw, "$1")
 	s = summaryBold.ReplaceAllString(s, "$1")
 	s = summaryCode.ReplaceAllString(s, "$1")
 	s = summaryWhitespace.ReplaceAllString(s, " ")
