@@ -993,6 +993,7 @@
     "window": {
       "title": "{{agent}} · {{issue}}",
       "trigger_label": "{{actor}} · Issue を割り当て",
+      "trigger_label_unknown": "Issue を割り当て",
       "files_changed_other": "{{count}} ファイルを変更",
       "other_steps_other": "その他 {{count}} ステップ",
       "composer_placeholder": "{{issue}} で {{agent}} に返信…",

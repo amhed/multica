@@ -1017,6 +1017,7 @@
     "window": {
       "title": "{{agent}} on {{issue}}",
       "trigger_label": "{{actor}} · assigned the issue",
+      "trigger_label_unknown": "Assigned the issue",
       "files_changed_one": "{{count}} file changed",
       "files_changed_other": "{{count}} files changed",
       "other_steps_one": "{{count}} other step",

@@ -993,6 +993,7 @@
     "window": {
       "title": "{{agent}} · {{issue}}",
       "trigger_label": "{{actor}} · 이슈 할당",
+      "trigger_label_unknown": "이슈 할당",
       "files_changed_other": "파일 {{count}}개 변경",
       "other_steps_other": "기타 {{count}}단계",
       "composer_placeholder": "{{issue}}에서 {{agent}}에게 답장…",
