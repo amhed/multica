@@ -997,6 +997,33 @@
       "quick_create": "Quick-created issue",
       "direct": "Direct assignment",
       "unknown": "Assigned task"
+    },
+    "waiting_for_you": "Waiting for you",
+    "stale_for": "No activity for {{duration}}",
+    "completed_ago": "finished {{ago}}",
+    "open_issue": "Open issue",
+    "stop": "Stop",
+    "reply": "Reply",
+    "click_to_open": "Click to open",
+    "step": {
+      "edited": "Edited {{object}}",
+      "read": "Read {{object}}",
+      "ran": "Ran {{object}}",
+      "searched": "Searched for {{object}}",
+      "used": "Used {{object}}",
+      "said": "{{object}}",
+      "errored": "Error: {{object}}"
+    },
+    "window": {
+      "title": "{{agent}} on {{issue}}",
+      "trigger_label": "{{actor}} · assigned the issue",
+      "files_changed_one": "{{count}} file changed",
+      "files_changed_other": "{{count}} files changed",
+      "other_steps_one": "{{count}} other step",
+      "other_steps_other": "{{count}} other steps",
+      "composer_placeholder": "Comment on {{issue}} as a reply to {{agent}}…",
+      "composer_running_hint": "The agent picks this up after its current run.",
+      "send": "Send"
     }
   }
 }

@@ -955,9 +955,7 @@
     "empty": "현재 작업 중인 에이전트가 없습니다.",
     "active_ago": "마지막 활동 {{ago}}",
     "started_ago": "시작 {{ago}}",
-    "running_count_one": "{{count}}개 실행 중",
     "running_count_other": "{{count}}개 실행 중",
-    "waiting_count_one": "{{count}}개 대기 중",
     "waiting_count_other": "{{count}}개 대기 중",
     "no_issue": "연결된 이슈 없음",
     "view_transcript": "기록 보기",
@@ -975,6 +973,31 @@
       "quick_create": "빠른 생성 이슈",
       "direct": "직접 할당",
       "unknown": "할당된 태스크"
+    },
+    "waiting_for_you": "회신 대기 중",
+    "stale_for": "{{duration}} 동안 활동 없음",
+    "completed_ago": "{{ago}} 완료",
+    "open_issue": "이슈 열기",
+    "stop": "중지",
+    "reply": "답장",
+    "click_to_open": "클릭하여 열기",
+    "step": {
+      "edited": "{{object}} 편집",
+      "read": "{{object}} 읽기",
+      "ran": "{{object}} 실행",
+      "searched": "{{object}} 검색",
+      "used": "{{object}} 사용",
+      "said": "{{object}}",
+      "errored": "오류: {{object}}"
+    },
+    "window": {
+      "title": "{{agent}} · {{issue}}",
+      "trigger_label": "{{actor}} · 이슈 할당",
+      "files_changed_other": "파일 {{count}}개 변경",
+      "other_steps_other": "기타 {{count}}단계",
+      "composer_placeholder": "{{issue}}에서 {{agent}}에게 답장…",
+      "composer_running_hint": "에이전트는 현재 실행이 끝난 뒤 이 댓글을 처리합니다.",
+      "send": "보내기"
     }
   }
 }

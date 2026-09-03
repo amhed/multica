@@ -955,9 +955,7 @@
     "empty": "現在稼働中のエージェントはいません。",
     "active_ago": "最終アクティビティ {{ago}}",
     "started_ago": "開始 {{ago}}",
-    "running_count_one": "{{count}} 件実行中",
     "running_count_other": "{{count}} 件実行中",
-    "waiting_count_one": "{{count}} 件待機中",
     "waiting_count_other": "{{count}} 件待機中",
     "no_issue": "関連 Issue なし",
     "view_transcript": "トランスクリプトを表示",
@@ -975,6 +973,31 @@
       "quick_create": "クイック作成の Issue",
       "direct": "直接割り当て",
       "unknown": "割り当てタスク"
+    },
+    "waiting_for_you": "あなたの返信待ち",
+    "stale_for": "{{duration}}間アクティビティなし",
+    "completed_ago": "{{ago}}に完了",
+    "open_issue": "Issue を開く",
+    "stop": "停止",
+    "reply": "返信",
+    "click_to_open": "クリックして開く",
+    "step": {
+      "edited": "{{object}} を編集",
+      "read": "{{object}} を読み取り",
+      "ran": "{{object}} を実行",
+      "searched": "{{object}} を検索",
+      "used": "{{object}} を使用",
+      "said": "{{object}}",
+      "errored": "エラー: {{object}}"
+    },
+    "window": {
+      "title": "{{agent}} · {{issue}}",
+      "trigger_label": "{{actor}} · Issue を割り当て",
+      "files_changed_other": "{{count}} ファイルを変更",
+      "other_steps_other": "その他 {{count}} ステップ",
+      "composer_placeholder": "{{issue}} で {{agent}} に返信…",
+      "composer_running_hint": "エージェントは現在の実行が終わった後にこのコメントを処理します。",
+      "send": "送信"
     }
   }
 }

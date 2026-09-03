@@ -955,9 +955,7 @@
     "empty": "当前没有智能体在工作。",
     "active_ago": "最近活动 {{ago}}",
     "started_ago": "开始于 {{ago}}",
-    "running_count_one": "{{count}} 个运行中",
     "running_count_other": "{{count}} 个运行中",
-    "waiting_count_one": "{{count}} 个等待中",
     "waiting_count_other": "{{count}} 个等待中",
     "no_issue": "未关联任务",
     "view_transcript": "查看执行记录",
@@ -975,6 +973,31 @@
       "quick_create": "快速创建的任务",
       "direct": "直接分配",
       "unknown": "已分配任务"
+    },
+    "waiting_for_you": "等你回复",
+    "stale_for": "已 {{duration}} 无活动",
+    "completed_ago": "{{ago}}完成",
+    "open_issue": "打开任务",
+    "stop": "停止",
+    "reply": "回复",
+    "click_to_open": "点击打开",
+    "step": {
+      "edited": "编辑了 {{object}}",
+      "read": "读取了 {{object}}",
+      "ran": "运行了 {{object}}",
+      "searched": "搜索了 {{object}}",
+      "used": "使用了 {{object}}",
+      "said": "{{object}}",
+      "errored": "错误：{{object}}"
+    },
+    "window": {
+      "title": "{{agent}} · {{issue}}",
+      "trigger_label": "{{actor}} · 分配了该任务",
+      "files_changed_other": "更改了 {{count}} 个文件",
+      "other_steps_other": "另外 {{count}} 个步骤",
+      "composer_placeholder": "在 {{issue}} 中回复 {{agent}}…",
+      "composer_running_hint": "智能体会在本次运行结束后处理这条评论。",
+      "send": "发送"
     }
   }
 }
