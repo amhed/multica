@@ -103,3 +103,11 @@ Seeded four tasks against real agents and issues in the dev database; running ta
 Verified in Chrome: grid with the waiting card first, generated headline, templated "right now" line, stale tone, click-through with `?task=`, deep link straight to a completed task, Escape and backdrop close, long command truncation, Reply posting a comment (201), Stop cancelling a task.
 Found and fixed: the Open issue link button needed `nativeButton={false}`; conversation blocks shrank inside the scroller (now `shrink-0`); the stale line read "No activity for 24m ago" and now reads "Last activity 24m ago"; focus left the composer after Send, so Escape hit the transcript tooltip first (now refocused).
 Known v1 limit confirmed live: only an agent's newest terminal task can appear as waiting, because the snapshot carries one terminal task per agent.
+
+## Upstream merge before deploy (2026-09-03)
+
+Merged upstream/main (23 commits, including the task-to-run rename and the removal of the assignment handoff note from the client) into the branch.
+Two textual conflicts, both test blocks upstream had deleted; upstream's deletions were taken.
+One semantic conflict: `handoff_note` no longer exists on the client `AgentTask` type, so the headline chain is now generated headline, then trigger summary, then kind.
+The server still reads the legacy `handoff_note` column into the summary prompt, which upstream preserved.
+Upstream also added its own `450_` migration; the two files record distinct versions and both apply.
