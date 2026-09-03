@@ -125,6 +125,7 @@ const openAISDKImportPrefix = "github.com/openai/openai-go"
 var documentedConsumers = map[string]string{
 	"internal/handler/chat_title.go":                  "chat auto-titling: the first user message of a new chat session",
 	"internal/service/chat_quick_actions_generate.go": "chat follow-up questions: the tail of the conversation",
+	"internal/service/task_summary.go":                "Active board headlines: the issue identifier and title, the first 1500 characters of the issue description, the task's trigger summary, and the handoff note",
 }
 
 // clientCallSurface is every method on Client that can produce an upstream

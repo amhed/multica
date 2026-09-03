@@ -1,8 +1,8 @@
 // Package llm is a thin, reusable wrapper around the official OpenAI Go SDK
 // (github.com/openai/openai-go). It exists so the rest of the server has a
 // single, well-typed entry point for "just call an LLM" needs that do NOT
-// require the full agent runtime — currently chat auto-titling and chat
-// follow-up questions (MUL-4238).
+// require the full agent runtime — currently chat auto-titling, chat
+// follow-up questions (MUL-4238), and Active board headlines.
 //
 // # Scope: the assist layer, not every model call in the product
 //
@@ -44,16 +44,21 @@
 //     Sends the tail of the conversation: up to 6 messages, the reply being
 //     answered capped at 3000 runes (2000 head + 1000 tail) and each older
 //     message at 800.
+//   - Active board headlines — server/internal/service/task_summary.go. Sends
+//     the issue identifier and title, the first 1500 characters of the issue
+//     description, the task's trigger summary (the comment or autopilot text
+//     that woke the agent), and the handoff note.
 //
-// Both consumers send private chat content, which is why an unconfigured
+// All three consumers send private chat content, which is why an unconfigured
 // deployment making zero upstream requests is a contract rather than a side
 // effect: New with no API key and no base URL returns a disabled client whose
 // every call fails with ErrNotConfigured before an HTTP request is ever built,
-// and both consumers check Enabled() before doing any work
+// and all three consumers check Enabled() before doing any work
 // (TestUnconfiguredClientMakesZeroUpstreamRequests). An operator who must not
 // let THIS layer send chat content leaves MULTICA_LLM_API_KEY and
 // MULTICA_LLM_BASE_URL empty; the product stays whole (client-derived chat
-// titles, no follow-up question buttons).
+// titles, no follow-up question buttons, no Active board headline — the board
+// keeps showing the trigger text instead).
 //
 // The wrapper is intentionally small:
 //
