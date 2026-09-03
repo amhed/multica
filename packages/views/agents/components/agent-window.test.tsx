@@ -101,4 +101,33 @@ describe("AgentWindow", () => {
     renderWindow(null);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("clips a long command so it doesn't overflow the card", () => {
+    const longCommand = `go test ./... -run TestSomethingVeryLongName${"x".repeat(180)}`;
+    mockMessages.current = [
+      { seq: 1, type: "tool_use", tool: "Bash", input: { command: longCommand } },
+      { seq: 2, type: "tool_result", output: "ok" },
+    ];
+    const { baseElement } = renderWindow(task({}));
+    const span = baseElement.querySelector(".font-mono.text-caption");
+    expect(span).toBeTruthy();
+    expect(span?.className).toContain("truncate");
+    expect(span?.className).toContain("min-w-0");
+  });
+
+  it("resets the composer draft when the window shows a different task", () => {
+    const taskA = task({ id: "t1", status: "completed", completed_at: "2026-09-03T10:30:00Z" });
+    const taskB = task({ id: "t2", status: "completed", completed_at: "2026-09-03T11:00:00Z" });
+    const { rerender } = renderWindow(taskA);
+    const box = screen.getByRole("textbox");
+    fireEvent.change(box, { target: { value: "Draft for task A" } });
+    expect(screen.getByRole("textbox")).toHaveProperty("value", "Draft for task A");
+
+    rerender(
+      <I18nProvider locale="en" resources={TEST_RESOURCES}>
+        <AgentWindow wsId="ws-1" task={taskB} onClose={vi.fn()} />
+      </I18nProvider>,
+    );
+    expect(screen.getByRole("textbox")).toHaveProperty("value", "");
+  });
 });

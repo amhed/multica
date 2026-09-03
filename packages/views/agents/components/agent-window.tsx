@@ -34,7 +34,7 @@ export interface AgentWindowProps {
 export function AgentWindow({ wsId, task, onClose }: AgentWindowProps) {
   return (
     <Dialog open={task !== null} onOpenChange={(open) => !open && onClose()}>
-      {task && <AgentWindowBody wsId={wsId} task={task} />}
+      {task && <AgentWindowBody key={task.id} wsId={wsId} task={task} />}
     </Dialog>
   );
 }
@@ -187,7 +187,7 @@ function Block({ block }: { block: ConversationBlock }) {
                   run.ok === true ? "bg-success" : run.ok === false ? "bg-destructive" : "bg-muted-foreground",
                 )}
               />
-              <span className="truncate font-mono text-caption">{run.command}</span>
+              <span className="min-w-0 flex-1 truncate font-mono text-caption">{run.command}</span>
             </div>
           ))}
         </div>
