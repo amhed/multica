@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 // Selection/sort/summary rules are covered in active-board.test.ts; this suite
-// keeps the wiring: one card per active task, the issue link, the summary text
-// and the empty state.
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+// keeps the wiring: one card per board task, waiting-first order, the ?task=
+// param opening/closing the agent window, and the empty state.
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { I18nProvider } from "@multica/core/i18n/react";
 import enCommon from "../../locales/en/common.json";
 import enAgents from "../../locales/en/agents.json";
@@ -18,10 +18,22 @@ vi.mock("@multica/core/paths", () => ({
 vi.mock("@multica/core/api", () => ({
   api: { getBaseUrl: () => "http://127.0.0.1:8080" },
 }));
+const navState = vi.hoisted(() => ({ search: new URLSearchParams(), replace: vi.fn() }));
 vi.mock("../../navigation", () => ({
   AppLink: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [k: string]: unknown }) => (
     <a href={href} {...rest}>{children}</a>
   ),
+  useNavigation: () => ({
+    pathname: "/acme/active",
+    searchParams: navState.search,
+    replace: navState.replace,
+    push: vi.fn(),
+    back: vi.fn(),
+    hash: "",
+  }),
+}));
+vi.mock("./agent-window", () => ({
+  AgentWindow: ({ task }: { task: { id: string } | null }) => (task ? <div role="dialog">window:{task.id}</div> : null),
 }));
 vi.mock("../../common/actor-avatar", () => ({ ActorAvatar: () => <span /> }));
 vi.mock("../../common/task-transcript/transcript-button", () => ({
@@ -45,28 +57,11 @@ vi.mock("@tanstack/react-query", () => ({
     if (root === "task-messages") return { data: opts.enabled ? mockMessages.current : [], isLoading: false };
     return { data: undefined, isLoading: false };
   },
+  useQueries: ({ queries }: { queries: { queryKey: readonly unknown[]; enabled?: boolean }[] }) =>
+    queries.map((q) => ({ data: q.enabled === false ? [] : mockMessages.current, isLoading: false })),
 }));
 
 import { ActiveBoardPage } from "./active-board-page";
-
-function task(over: Record<string, unknown>) {
-  return {
-    id: "task-1",
-    agent_id: "agent-1",
-    runtime_id: "rt-1",
-    issue_id: "",
-    workspace_id: "ws-1",
-    status: "running",
-    priority: 0,
-    dispatched_at: null,
-    started_at: "2026-08-29T10:00:00Z",
-    completed_at: null,
-    result: null,
-    error: null,
-    created_at: "2026-08-29T10:00:00Z",
-    ...over,
-  };
-}
 
 function renderPage() {
   return render(
@@ -76,62 +71,61 @@ function renderPage() {
   );
 }
 
+const running = {
+  id: "11111111-1111-4111-8111-111111111111", agent_id: "a1", runtime_id: "r", issue_id: "i1", status: "running", priority: 0,
+  dispatched_at: null, started_at: "2026-09-03T10:00:00Z", completed_at: null, result: null, error: null,
+  created_at: "2026-09-03T09:59:00Z", pstack_summary: "Adds a --property flag to issue list.",
+};
+const finished = {
+  ...running, id: "22222222-2222-4222-8222-222222222222", agent_id: "a2", issue_id: "i2", status: "completed",
+  completed_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(), pstack_summary: null,
+  handoff_note: "Decide the membership rule",
+};
+
 describe("ActiveBoardPage", () => {
   beforeEach(() => {
+    mockAgents.current = [{ id: "a1", name: "Codex" }, { id: "a2", name: "Claude" }];
+    mockIssues.current = { i1: { id: "i1", identifier: "MUL-1", title: "Flag" }, i2: { id: "i2", identifier: "MUL-2", title: "Auth" } };
+    mockMessages.current = [{ seq: 1, type: "text", content: "Every run, or only at creation?" }];
+    mockSnapshot.current = [running, finished];
+    navState.search = new URLSearchParams();
+    navState.replace.mockReset();
+  });
+  afterEach(cleanup);
+
+  it("renders one card per task with the generated headline and a waiting card first", () => {
+    renderPage();
+    // Each card's headline button carries its own accessible name (the
+    // headline text), not the agent name, so the waiting-first order is
+    // asserted on which headline comes first rather than on agent name.
+    const headlines = screen.getAllByRole("button", {
+      name: /Adds a --property flag to issue list\.|Decide the membership rule/,
+    });
+    expect(headlines[0]).toHaveAccessibleName("Decide the membership rule");
+    expect(screen.getByText("Waiting for you")).toBeTruthy();
+    expect(screen.getByText("Adds a --property flag to issue list.")).toBeTruthy();
+  });
+
+  it("opens the window through the task search param", () => {
+    renderPage();
+    fireEvent.click(screen.getByText("Adds a --property flag to issue list."));
+    expect(navState.replace).toHaveBeenCalledWith("/acme/active?task=11111111-1111-4111-8111-111111111111");
+  });
+
+  it("shows the window when the param is present and clears an unknown one", () => {
+    navState.search = new URLSearchParams("task=11111111-1111-4111-8111-111111111111");
+    renderPage();
+    expect(screen.getByRole("dialog").textContent).toBe("window:11111111-1111-4111-8111-111111111111");
     cleanup();
-    mockAgents.current = [
-      { id: "agent-1", name: "Squirtle", avatar_url: null },
-      { id: "agent-2", name: "Bulbasaur", avatar_url: null },
-    ];
+    navState.search = new URLSearchParams("task=missing");
+    renderPage();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(navState.replace).toHaveBeenCalledWith("/acme/active");
+  });
+
+  it("shows the empty state with no tasks", () => {
     mockSnapshot.current = [];
-    mockIssues.current = {};
-    mockMessages.current = [];
-  });
-
-  it("shows the empty state when no task is active", () => {
-    mockSnapshot.current = [task({ status: "completed" })];
     renderPage();
-    expect(screen.getByText("No agents are working right now.")).toBeInTheDocument();
-  });
-
-  it("renders a card per active task with agent, issue, summary and activity peek", () => {
-    mockSnapshot.current = [
-      task({
-        id: "11111111-1111-4111-8111-111111111111",
-        issue_id: "issue-1",
-        handoff_note: "[@Squirtle](mention://agent/agent-1) ship the squad palette",
-      }),
-      task({ id: "t4", agent_id: "agent-2", issue_id: "issue-1", status: "queued", kind: "comment" }),
-      task({ id: "t2", agent_id: "agent-2", status: "queued", kind: "direct" }),
-      task({ id: "t3", status: "completed" }),
-    ];
-    mockIssues.current = { "issue-1": { id: "issue-1", identifier: "MUL-42", title: "Palette" } };
-    mockMessages.current = [
-      { seq: 1, type: "tool_use", tool: "Edit", input: { file_path: "packages/views/search/search-command.tsx" } },
-      { seq: 2, type: "tool_result", tool: "Edit", output: '{"type":"SearchReplace","EditsApplied":{}}' },
-      { seq: 3, type: "text", content: "Now wiring the command." },
-    ];
-    renderPage();
-
-    expect(screen.getByText("Squirtle")).toBeInTheDocument();
-    expect(screen.getAllByText("Bulbasaur")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: /MUL-42/ })).toHaveAttribute("href", "/acme/issues/issue-1");
-    // One issue heading for both issue-1 tasks; the running one shows the
-    // agent's latest words, the queued one its trigger.
-    expect(screen.getAllByRole("link", { name: /MUL-42/ })).toHaveLength(1);
-    // Shown once as the doing-now line, not again in the activity peek.
-    expect(screen.getAllByText("Now wiring the command.")).toHaveLength(1);
-    expect(screen.getByText("Triggered by a comment")).toBeInTheDocument();
-    expect(screen.getByText("Direct assignment")).toBeInTheDocument();
-    expect(screen.getByText("No linked issue")).toBeInTheDocument();
-    expect(screen.getByText("Running")).toBeInTheDocument();
-    expect(screen.getAllByText("Queued")).toHaveLength(2);
-    expect(screen.getByText("1 running · 2 waiting")).toBeInTheDocument();
-    // Tool calls read as name + argument; raw result JSON never shows.
-    expect(screen.getByText("Edit")).toBeInTheDocument();
-    expect(screen.getByText(/search-command\.tsx/)).toBeInTheDocument();
-    expect(screen.queryByText(/EditsApplied/)).not.toBeInTheDocument();
-    // Only the three active tasks become cards.
-    expect(screen.getAllByRole("button", { name: "transcript" })).toHaveLength(3);
+    expect(screen.getByText("No agents are working right now.")).toBeTruthy();
   });
 });
