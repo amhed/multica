@@ -997,6 +997,14 @@ SET status = 'running',
 WHERE id = $1 AND status IN ('dispatched', 'waiting_local_directory')
 RETURNING *;
 
+-- name: SetAgentTaskPstackSummary :one
+-- Stores the one-time active-board headline. Only fills an empty slot: the
+-- summary is written once per task and a later writer must never replace it.
+UPDATE agent_task_queue
+SET pstack_summary = @pstack_summary
+WHERE id = @id AND pstack_summary IS NULL
+RETURNING *;
+
 -- name: MarkAgentTaskWaitingLocalDirectory :one
 -- Transitions a freshly-dispatched task into 'waiting_local_directory' while
 -- the daemon waits for another in-flight task to release the path lock on a
