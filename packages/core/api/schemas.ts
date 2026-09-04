@@ -1354,12 +1354,10 @@ const SearchIssueResultSchema = IssueSchema.extend({
 
 export const SearchIssuesResponseSchema = z.object({
   issues: z.array(SearchIssueResultSchema).default([]),
-  total: z.number().default(0),
 }).loose();
 
 export const EMPTY_SEARCH_ISSUES_RESPONSE: SearchIssuesResponse = {
   issues: [],
-  total: 0,
 };
 
 const ProjectSchema = z.object({
@@ -1391,12 +1389,10 @@ const SearchProjectResultSchema = ProjectSchema.extend({
 
 export const SearchProjectsResponseSchema = z.object({
   projects: z.array(SearchProjectResultSchema).default([]),
-  total: z.number().default(0),
 }).loose();
 
 export const EMPTY_SEARCH_PROJECTS_RESPONSE: SearchProjectsResponse = {
   projects: [],
-  total: 0,
 };
 
 const IssueAssigneeGroupSchema = z.object({
