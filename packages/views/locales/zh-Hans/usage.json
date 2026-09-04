@@ -8,7 +8,16 @@
   "filter": {
     "project_label": "项目",
     "all_projects": "全部项目",
-    "period_label": "时间范围"
+    "period_label": "时间范围",
+    "subscriptions_label": "订阅"
+  },
+  "subscriptions": {
+    "title": "订阅",
+    "edit_fees": "编辑订阅费用",
+    "description": "对于按订阅付费的提供商，用按所选时间范围折算的月费替代按量估算的成本。",
+    "per_month": "{{amount}} / 月",
+    "active_label": "{{amount}}/月",
+    "no_providers": "该时间范围内没有提供商用量。"
   },
   "kpi": {
     "cost_label": "费用 · {{days}}天",

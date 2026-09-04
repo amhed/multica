@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { SUBSCRIPTION_MODEL } from "@multica/core/runtimes";
 import type { AgentRuntime, RuntimeUsage } from "@multica/core/types";
 
 import {
@@ -1357,6 +1358,31 @@ describe("aggregateByWeek", () => {
       cache_write_tokens: cacheWrite,
     };
   }
+
+  it("routes subscription fee rows to their own cost segment", () => {
+    vi.setSystemTime(new Date("2026-05-24T12:00:00Z"));
+    const rows: RuntimeUsage[] = [
+      makeUsage("2026-05-18", 1_000_000, 0),
+      {
+        ...makeUsage("2026-05-18", 0, 0),
+        provider: "claude",
+        model: SUBSCRIPTION_MODEL,
+        uncosted_input_tokens: 0,
+        uncosted_output_tokens: 0,
+        uncosted_cache_read_tokens: 0,
+        uncosted_cache_write_tokens: 0,
+        cost_usd_ticks: 10 * 1e10,
+      },
+    ];
+    const { weeklyCostStack } = aggregateByWeek(rows, "UTC", 1);
+    expect(weeklyCostStack).toHaveLength(1);
+    expect(weeklyCostStack[0]).toMatchObject({
+      input: 3,
+      output: 0,
+      subscription: 10,
+      total: 13,
+    });
+  });
 
   it("groups daily rows into Mon-anchored ISO weeks", () => {
     // 2026-05-24 is Sunday, so the calendar week containing "today" is

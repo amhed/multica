@@ -7,6 +7,7 @@ import {
   aggregateDailyCost,
   aggregateDailyErrors,
   aggregateDailyTasks,
+  aggregateDailyTokens,
   aggregateFailureClasses,
   aggregateFailureReasons,
   aggregateWeeklyErrors,
@@ -22,7 +23,11 @@ import {
   mergeAgentDashboardRows,
   RESTRICTED_AGENTS_ROW_ID,
   sortAgentFailures,
+  applySubscriptionsToAgents,
+  applySubscriptionsToDaily,
 } from "./utils";
+import { estimateCost } from "../runtimes/utils";
+import { SUBSCRIPTION_MODEL } from "@multica/core/runtimes";
 
 describe("aggregateDailyCost", () => {
   it("collapses multiple rows per day into one stack and sorts by date asc", () => {
@@ -783,5 +788,201 @@ describe("anonymizeUnresolvedAgentRows", () => {
     const known = new Set(["visible", "private-a", "private-b"]);
     // Same reference, not just equal — nothing needed rewriting.
     expect(anonymizeUnresolvedAgentRows(rows, known)).toBe(rows);
+  });
+});
+
+describe("applySubscriptionsToDaily", () => {
+  const claudeRow = {
+    date: "2026-05-10",
+    provider: "claude",
+    model: "claude-sonnet-4-6",
+    input_tokens: 1_000_000,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    task_count: 3,
+  };
+  const grokRow = {
+    date: "2026-05-10",
+    provider: "grok",
+    model: "grok-4",
+    input_tokens: 10,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+    cost_usd_ticks: 5 * 1e10,
+    task_count: 1,
+  };
+
+  it("returns the rows untouched when no provider is subscribed", () => {
+    const rows = [claudeRow, grokRow];
+    expect(applySubscriptionsToDaily(rows, {}, "2026-05-10", 3)).toBe(rows);
+  });
+
+  it("zeroes the metered cost of subscribed providers but keeps their tokens", () => {
+    const result = applySubscriptionsToDaily(
+      [claudeRow, grokRow],
+      { claude: 300 },
+      "2026-05-10",
+      1,
+    );
+    const claude = result.find((r) => r.provider === "claude" && r.model === claudeRow.model)!;
+    expect(claude.input_tokens).toBe(1_000_000);
+    expect(claude.task_count).toBe(3);
+    expect(estimateCost(claude)).toBe(0);
+    // Unsubscribed grok keeps its authoritative $5.
+    const grok = result.find((r) => r.provider === "grok")!;
+    expect(estimateCost(grok)).toBe(5);
+  });
+
+  it("adds one fee row per day in the window worth fee / 30", () => {
+    const result = applySubscriptionsToDaily(
+      [claudeRow],
+      { claude: 300 },
+      "2026-05-10",
+      3,
+    );
+    const fees = result.filter((r) => r.model === SUBSCRIPTION_MODEL);
+    expect(fees.map((r) => r.date)).toEqual(["2026-05-08", "2026-05-09", "2026-05-10"]);
+    for (const f of fees) {
+      expect(f.provider).toBe("claude");
+      expect(estimateCost(f)).toBeCloseTo(10, 6);
+      expect(f.task_count).toBe(0);
+      expect(f.input_tokens).toBe(0);
+    }
+    // Whole-window totals therefore read the prorated fee, not the estimate.
+    expect(computeDailyTotals(result).cost).toBeCloseTo(30, 6);
+    expect(computeDailyTotals(result).taskCount).toBe(3);
+  });
+});
+
+describe("applySubscriptionsToAgents", () => {
+  const rows = [
+    {
+      agent_id: "dev",
+      provider: "claude",
+      model: "claude-sonnet-4-6",
+      input_tokens: 3_000_000,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      task_count: 3,
+    },
+    {
+      agent_id: "reviewer",
+      provider: "claude",
+      model: "claude-sonnet-4-6",
+      input_tokens: 1_000_000,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      task_count: 1,
+    },
+    {
+      agent_id: "dev",
+      provider: "grok",
+      model: "grok-4",
+      input_tokens: 10,
+      output_tokens: 0,
+      cache_read_tokens: 0,
+      cache_write_tokens: 0,
+      cost_usd_ticks: 5 * 1e10,
+      task_count: 1,
+    },
+  ];
+
+  it("returns the rows untouched when no provider is subscribed", () => {
+    expect(applySubscriptionsToAgents(rows, {}, 30)).toBe(rows);
+  });
+
+  it("splits the prorated fee across the provider's agents by token share", () => {
+    // 15 days of a $300/month plan = $150, split 3:1 between dev and reviewer.
+    const agentRows = aggregateAgentTokens(
+      applySubscriptionsToAgents(rows, { claude: 300 }, 15),
+    );
+    const dev = agentRows.find((r) => r.agentId === "dev")!;
+    const reviewer = agentRows.find((r) => r.agentId === "reviewer")!;
+    // dev: $112.50 Claude share + $5 metered Grok.
+    expect(dev.cost).toBeCloseTo(117.5, 6);
+    expect(reviewer.cost).toBeCloseTo(37.5, 6);
+    // Tokens and task counts are unchanged by the fee rows.
+    expect(dev.tokens).toBe(3_000_010);
+    expect(dev.taskCount).toBe(4);
+    expect(reviewer.tokens).toBe(1_000_000);
+  });
+
+  it("skips a subscribed provider no agent used in the window", () => {
+    const result = applySubscriptionsToAgents(rows, { codex: 100 }, 30);
+    expect(result.filter((r) => r.model === SUBSCRIPTION_MODEL)).toEqual([]);
+  });
+});
+
+describe("aggregateDailyTokens with subscription rows", () => {
+  it("ignores fee rows so days without usage stay off the token axis", () => {
+    const result = aggregateDailyTokens([
+      {
+        date: "2026-05-09",
+        provider: "claude",
+        model: SUBSCRIPTION_MODEL,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        cost_usd_ticks: 10 * 1e10,
+        task_count: 0,
+      },
+      {
+        date: "2026-05-10",
+        provider: "claude",
+        model: "claude-sonnet-4-6",
+        input_tokens: 5,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        task_count: 1,
+      },
+    ]);
+    expect(result.map((r) => r.date)).toEqual(["2026-05-10"]);
+  });
+});
+
+describe("aggregateDailyCost with subscription rows", () => {
+  it("routes fee rows to their own segment and keeps the total honest", () => {
+    const result = aggregateDailyCost([
+      {
+        date: "2026-05-10",
+        provider: "claude",
+        model: "claude-sonnet-4-6",
+        input_tokens: 1_000_000,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        task_count: 1,
+      },
+      {
+        date: "2026-05-10",
+        provider: "claude",
+        model: SUBSCRIPTION_MODEL,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        uncosted_input_tokens: 0,
+        uncosted_output_tokens: 0,
+        uncosted_cache_read_tokens: 0,
+        uncosted_cache_write_tokens: 0,
+        cost_usd_ticks: 10 * 1e10,
+        task_count: 0,
+      },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      input: 3,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      subscription: 10,
+      total: 13,
+    });
   });
 });

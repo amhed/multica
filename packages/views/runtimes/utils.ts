@@ -4,6 +4,7 @@ import type {
   RuntimeUsageByAgent,
 } from "@multica/core/types";
 import { getCustomPricing } from "@multica/core/runtimes/custom-pricing-store";
+import { SUBSCRIPTION_MODEL } from "@multica/core/runtimes/subscription-pricing-store";
 
 // A live local daemon re-registers itself within seconds of a server-side
 // delete (daemon self-heal, #2404), so deleting an online local runtime from
@@ -853,6 +854,9 @@ export interface DailyCostStackData {
   output: number;
   cacheRead: number;
   cacheWrite: number;
+  // Flat-rate subscription fee (see subscription-pricing-store). Only the
+  // workspace dashboard produces it; the runtime page leaves it unset.
+  subscription?: number;
   total: number;
 }
 
@@ -891,6 +895,7 @@ export interface WeeklyCostStackData {
   output: number;
   cacheRead: number;
   cacheWrite: number;
+  subscription: number;
   total: number;
 }
 
@@ -1017,6 +1022,11 @@ type WeeklyAggregable = Pick<
   | "output_tokens"
   | "cache_read_tokens"
   | "cache_write_tokens"
+  | "cost_usd_ticks"
+  | "uncosted_input_tokens"
+  | "uncosted_output_tokens"
+  | "uncosted_cache_read_tokens"
+  | "uncosted_cache_write_tokens"
 > & { provider?: string };
 
 export function aggregateByWeek(
@@ -1036,7 +1046,13 @@ export function aggregateByWeek(
   const tokenMap = new Map<string, TokenAgg>();
   const stackMap = new Map<
     string,
-    { input: number; output: number; cacheRead: number; cacheWrite: number }
+    {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheWrite: number;
+      subscription: number;
+    }
   >();
 
   // Pre-seed every trailing calendar week in the window so sparse / empty
@@ -1050,7 +1066,13 @@ export function aggregateByWeek(
       cacheRead: 0,
       cacheWrite: 0,
     });
-    stackMap.set(wkStart, { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    stackMap.set(wkStart, {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      subscription: 0,
+    });
   }
 
   for (const u of usage) {
@@ -1063,9 +1085,15 @@ export function aggregateByWeek(
     tokens.cacheRead += u.cache_read_tokens;
     tokens.cacheWrite += u.cache_write_tokens;
 
-    const breakdown = estimateCostBreakdown(u);
     const stack = stackMap.get(wkStart);
     if (!stack) continue;
+    if (u.model === SUBSCRIPTION_MODEL) {
+      // A flat fee is not token spend: it gets its own segment rather than
+      // being shaped into the input bucket like an authoritative charge.
+      stack.subscription += (u.cost_usd_ticks ?? 0) / COST_USD_TICKS_PER_USD;
+      continue;
+    }
+    const breakdown = estimateCostBreakdown(u);
     stack.input += breakdown.input;
     stack.output += breakdown.output;
     stack.cacheRead += breakdown.cacheRead;
@@ -1107,13 +1135,15 @@ export function aggregateByWeek(
       const output = round(s.output);
       const cacheRead = round(s.cacheRead);
       const cacheWrite = round(s.cacheWrite);
+      const subscription = round(s.subscription);
       return {
         ...decorate(weekStart),
         input,
         output,
         cacheRead,
         cacheWrite,
-        total: round(input + output + cacheRead + cacheWrite),
+        subscription,
+        total: round(input + output + cacheRead + cacheWrite + subscription),
       };
     });
 

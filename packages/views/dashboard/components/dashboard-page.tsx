@@ -25,6 +25,7 @@ import {
   dashboardFailuresByAgentOptions,
 } from "@multica/core/dashboard";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import { useViewingTimezone } from "../../common/use-viewing-timezone";
 import { PAGE_GUTTER } from "../../layout/page-header";
 import { CollectionPageHeader } from "../../layout/collection-page";
@@ -50,6 +51,8 @@ import {
   aggregateWeeklyErrors,
   aggregateWeeklyTasks,
   aggregateWeeklyTime,
+  applySubscriptionsToAgents,
+  applySubscriptionsToDaily,
   bucketUnknownAgentRows,
   anonymizeUnresolvedAgentRows,
   computeDailyTotals,
@@ -63,7 +66,7 @@ import {
   dimsForDays,
   type TimeRange,
 } from "./dashboard-shared";
-import { ProjectFilter, TimeRangeFilter } from "./dashboard-filters";
+import { ProjectFilter, SubscriptionsFilter, TimeRangeFilter } from "./dashboard-filters";
 import { UsageTrendCard } from "./usage-trend-card";
 import { Leaderboard } from "./leaderboard";
 import { ErrorsTab } from "./errors-tab";
@@ -73,6 +76,7 @@ import { cn } from "@multica/ui/lib/utils";
 // every render while the query is loading, which breaks useMemo's
 // reference-equality dep check and trips the exhaustive-deps lint rule.
 const EMPTY_DAILY: import("@multica/core/types").DashboardUsageDaily[] = [];
+const EMPTY_FEES: Readonly<Record<string, number>> = {};
 const EMPTY_BY_AGENT: import("@multica/core/types").DashboardUsageByAgent[] = [];
 const EMPTY_RUNTIME: import("@multica/core/types").DashboardAgentRunTime[] = [];
 const EMPTY_RUNTIME_DAILY: import("@multica/core/types").DashboardRunTimeDaily[] = [];
@@ -175,6 +179,15 @@ export function DashboardPage() {
   // they do so the dashboard reflects the new rates.
   useCustomPricingStore((s) => s.pricings);
 
+  // Flat-rate subscriptions replace a provider's metered cost with its
+  // prorated monthly fee. Applied to the usage rows before any cost math so
+  // the KPI, both charts and the leaderboard all read the same figure.
+  const subscriptionsEnabled = useSubscriptionPricingStore((s) => s.enabled);
+  const monthlyFees = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const setSubscriptionsEnabled = useSubscriptionPricingStore((s) => s.setEnabled);
+  const setMonthlyFee = useSubscriptionPricingStore((s) => s.setMonthlyFee);
+  const activeFees = subscriptionsEnabled ? monthlyFees : EMPTY_FEES;
+
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
   const agentsQuery = useQuery(agentListOptions(wsId));
   const agents = agentsQuery.data ?? EMPTY_AGENTS;
@@ -231,8 +244,32 @@ export function DashboardPage() {
     dashboardFailuresByAgentOptions(wsId, days, projectId, viewTZ),
   );
 
-  const dailyUsage = dailyQuery.data ?? EMPTY_DAILY;
-  const byAgentUsage = byAgentQuery.data ?? EMPTY_BY_AGENT;
+  const rawDailyUsage = dailyQuery.data ?? EMPTY_DAILY;
+  const rawByAgentUsage = byAgentQuery.data ?? EMPTY_BY_AGENT;
+  const todayInView = todayIso(viewTZ);
+  const dailyUsage = useMemo(
+    () => applySubscriptionsToDaily(rawDailyUsage, activeFees, todayInView, chartFetchDays),
+    [rawDailyUsage, activeFees, todayInView, chartFetchDays],
+  );
+  const byAgentUsage = useMemo(
+    () => applySubscriptionsToAgents(rawByAgentUsage, activeFees, days),
+    [rawByAgentUsage, activeFees, days],
+  );
+  // Every provider that reported usage in the fetched span, plus any the user
+  // already priced, so the fee list never hides a provider that is being
+  // charged for.
+  const subscriptionProviders = useMemo(
+    () =>
+      Array.from(
+        new Set([
+          ...rawDailyUsage.map((u) => u.provider.trim().toLowerCase()),
+          ...Object.keys(monthlyFees),
+        ]),
+      )
+        .filter((p) => p !== "")
+        .toSorted(),
+    [rawDailyUsage, monthlyFees],
+  );
   const runTimeRows = runTimeQuery.data ?? EMPTY_RUNTIME;
   const runTimeDailyRows = runTimeDailyQuery.data ?? EMPTY_RUNTIME_DAILY;
   const failureDailyRows = failuresDailyQuery.data ?? EMPTY_FAILURE_DAILY;
@@ -273,8 +310,8 @@ export function DashboardPage() {
   // both dims so 1d strictly means "today" even at the midnight edge where a
   // wall-clock cutoff would otherwise include yesterday.
   const dailyCutoffIso = useMemo(
-    () => addDaysIso(todayIso(viewTZ), -(days - 1)),
-    [days, viewTZ],
+    () => addDaysIso(todayInView, -(days - 1)),
+    [days, todayInView],
   );
   const dailyUsageInWindow = useMemo(
     () => dailyUsage.filter((u) => u.date >= dailyCutoffIso),
@@ -302,8 +339,8 @@ export function DashboardPage() {
 
   const usageHasNoData =
     !usageLoading &&
-    dailyUsage.length === 0 &&
-    byAgentUsage.length === 0 &&
+    rawDailyUsage.length === 0 &&
+    rawByAgentUsage.length === 0 &&
     runTimeRows.length === 0 &&
     runTimeDailyRows.length === 0;
 
@@ -519,6 +556,13 @@ export function DashboardPage() {
               projects={projects}
               projectValue={projectValue}
               onProjectChange={setProjectValue}
+            />
+            <SubscriptionsFilter
+              providers={subscriptionProviders}
+              enabled={subscriptionsEnabled}
+              fees={monthlyFees}
+              onEnabledChange={setSubscriptionsEnabled}
+              onFeeChange={setMonthlyFee}
             />
           </div>
         </div>

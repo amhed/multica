@@ -11,6 +11,7 @@ import {
   failureClassOf,
   type FailureClass,
 } from "@multica/core/dashboard";
+import { SUBSCRIPTION_MODEL } from "@multica/core/runtimes/subscription-pricing-store";
 import {
   addDaysIso,
   estimateCost,
@@ -53,6 +54,7 @@ export interface DailyCostStack {
   output: number;
   cacheRead: number;
   cacheWrite: number;
+  subscription: number;
   total: number;
 }
 
@@ -71,21 +73,34 @@ function formatDateLabel(d: string): string {
 export function aggregateDailyCost(usage: DashboardUsageDaily[]): DailyCostStack[] {
   const map = new Map<
     string,
-    { input: number; output: number; cacheRead: number; cacheWrite: number }
+    {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheWrite: number;
+      subscription: number;
+    }
   >();
   for (const u of usage) {
-    const b = estimateCostBreakdown(u);
     const entry = map.get(u.date) ?? {
       input: 0,
       output: 0,
       cacheRead: 0,
       cacheWrite: 0,
+      subscription: 0,
     };
+    map.set(u.date, entry);
+    if (u.model === SUBSCRIPTION_MODEL) {
+      // Flat fee rows (applySubscriptionsToDaily) get their own segment
+      // instead of being shaped into the token buckets.
+      entry.subscription += estimateCost(u);
+      continue;
+    }
+    const b = estimateCostBreakdown(u);
     entry.input += b.input;
     entry.output += b.output;
     entry.cacheRead += b.cacheRead;
     entry.cacheWrite += b.cacheWrite;
-    map.set(u.date, entry);
   }
   const round = (n: number) => Math.round(n * 100) / 100;
   return Array.from(map.entries())
@@ -95,6 +110,7 @@ export function aggregateDailyCost(usage: DashboardUsageDaily[]): DailyCostStack
       const output = round(s.output);
       const cacheRead = round(s.cacheRead);
       const cacheWrite = round(s.cacheWrite);
+      const subscription = round(s.subscription);
       return {
         date,
         label: formatDateLabel(date),
@@ -102,9 +118,154 @@ export function aggregateDailyCost(usage: DashboardUsageDaily[]): DailyCostStack
         output,
         cacheRead,
         cacheWrite,
-        total: round(input + output + cacheRead + cacheWrite),
+        subscription,
+        total: round(input + output + cacheRead + cacheWrite + subscription),
       };
     });
+}
+
+// ---------------------------------------------------------------------------
+// Flat-rate subscriptions
+//
+// Usage on a subscribed provider (Claude Max, ChatGPT Pro, SuperGrok) is not
+// metered, so the rate-table estimate is not what the team pays. When the
+// user turns subscriptions on, the rows below rewrite the usage series before
+// any cost aggregation runs: metered cost on a subscribed provider is zeroed
+// (tokens and run counts stay, they are still real usage) and synthetic
+// `SUBSCRIPTION_MODEL` rows carry the fee instead. Everything downstream
+// (KPIs, daily / weekly charts, leaderboard) then reads the fee through the
+// same `estimateCost` path as any authoritative charge.
+//
+// A month is taken as 30 days, so a 30d window shows the full monthly fee and
+// a 7d window shows 7/30 of it.
+// ---------------------------------------------------------------------------
+
+/** Provider slug (lowercase) → USD per month. */
+export type SubscriptionFees = Readonly<Record<string, number>>;
+
+const DAYS_PER_MONTH = 30;
+const COST_USD_TICKS_PER_USD = 10_000_000_000;
+
+function subscriptionFeeFor(fees: SubscriptionFees, provider: string): number {
+  return fees[provider.trim().toLowerCase()] ?? 0;
+}
+
+function hasSubscribedRow(
+  rows: readonly { provider: string }[],
+  fees: SubscriptionFees,
+): boolean {
+  return rows.some((r) => subscriptionFeeFor(fees, r.provider) > 0);
+}
+
+// Keep tokens, drop the money: `uncosted_*` at zero tells `estimateCost`
+// there is nothing left to estimate, and no authoritative charge remains.
+function withoutMeteredCost<T extends DashboardUsageDaily | DashboardUsageByAgent>(row: T): T {
+  return {
+    ...row,
+    cost_usd_ticks: 0,
+    uncosted_input_tokens: 0,
+    uncosted_output_tokens: 0,
+    uncosted_cache_read_tokens: 0,
+    uncosted_cache_write_tokens: 0,
+  };
+}
+
+const ZERO_USAGE = {
+  model: SUBSCRIPTION_MODEL,
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_tokens: 0,
+  cache_write_tokens: 0,
+  uncosted_input_tokens: 0,
+  uncosted_output_tokens: 0,
+  uncosted_cache_read_tokens: 0,
+  uncosted_cache_write_tokens: 0,
+  task_count: 0,
+} as const;
+
+function usdToTicks(usd: number): number {
+  return Math.round(usd * COST_USD_TICKS_PER_USD);
+}
+
+/**
+ * Per-(date, provider, model) rows → the same rows with subscribed providers'
+ * metered cost removed, plus one fee row per subscribed provider for each of
+ * the `dayCount` days ending at `todayIso`. Fee rows cover the whole fetched
+ * span (not just the days with usage) so the daily and weekly charts both
+ * read a flat fee/30 per day. Returns the input untouched when nothing in it
+ * is subscribed.
+ */
+export function applySubscriptionsToDaily(
+  rows: DashboardUsageDaily[],
+  fees: SubscriptionFees,
+  todayIso: string,
+  dayCount: number,
+): DashboardUsageDaily[] {
+  const providers = Object.keys(fees).filter((p) => fees[p]! > 0);
+  if (providers.length === 0) return rows;
+  const out: DashboardUsageDaily[] = rows.map((r) =>
+    subscriptionFeeFor(fees, r.provider) > 0 ? withoutMeteredCost(r) : r,
+  );
+  for (const provider of providers) {
+    const ticks = usdToTicks(fees[provider]! / DAYS_PER_MONTH);
+    for (let i = dayCount - 1; i >= 0; i--) {
+      out.push({
+        ...ZERO_USAGE,
+        date: addDaysIso(todayIso, -i),
+        provider,
+        cost_usd_ticks: ticks,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * Per-(agent, provider, model) rows → the same rows with subscribed providers'
+ * metered cost removed, plus one fee row per (agent, subscribed provider)
+ * carrying that agent's share of the fee prorated to `days`. The share is the
+ * agent's fraction of the provider's tokens in the window, so the leaderboard
+ * column sums to the same figure the Cost KPI shows. A subscribed provider no
+ * agent used contributes nothing here (the KPI still carries its fee).
+ */
+export function applySubscriptionsToAgents(
+  rows: DashboardUsageByAgent[],
+  fees: SubscriptionFees,
+  days: number,
+): DashboardUsageByAgent[] {
+  if (!hasSubscribedRow(rows, fees)) return rows;
+  const out: DashboardUsageByAgent[] = [];
+  // provider → agent → tokens
+  const tokensByProvider = new Map<string, Map<string, number>>();
+  for (const r of rows) {
+    if (subscriptionFeeFor(fees, r.provider) <= 0) {
+      out.push(r);
+      continue;
+    }
+    out.push(withoutMeteredCost(r));
+    const provider = r.provider.trim().toLowerCase();
+    const byAgent = tokensByProvider.get(provider) ?? new Map<string, number>();
+    const tokens =
+      r.input_tokens + r.output_tokens + r.cache_read_tokens + r.cache_write_tokens;
+    byAgent.set(r.agent_id, (byAgent.get(r.agent_id) ?? 0) + tokens);
+    tokensByProvider.set(provider, byAgent);
+  }
+  for (const [provider, byAgent] of tokensByProvider) {
+    const windowFee = (fees[provider]! * days) / DAYS_PER_MONTH;
+    const total = Array.from(byAgent.values()).reduce((a, b) => a + b, 0);
+    for (const [agentId, tokens] of byAgent) {
+      // No tokens anywhere on this provider: split the fee evenly rather
+      // than dropping it, so the column still reconciles with the KPI.
+      const share = total > 0 ? tokens / total : 1 / byAgent.size;
+      out.push({
+        ...ZERO_USAGE,
+        agent_id: agentId,
+        provider,
+        cost_usd_ticks: usdToTicks(windowFee * share),
+      });
+    }
+  }
+  return out;
 }
 
 // Per-(date, model) rows → 1 row per date with raw token counts split
@@ -119,6 +280,9 @@ export function aggregateDailyTokens(usage: DashboardUsageDaily[]): DailyTokenDa
     { input: number; output: number; cacheRead: number; cacheWrite: number }
   >();
   for (const u of usage) {
+    // Fee rows carry no tokens; letting them through would paint every day
+    // of the window on the token axis, usage or not.
+    if (u.model === SUBSCRIPTION_MODEL) continue;
     const entry = map.get(u.date) ?? {
       input: 0,
       output: 0,

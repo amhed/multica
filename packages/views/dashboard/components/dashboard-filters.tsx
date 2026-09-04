@@ -1,7 +1,15 @@
 "use client";
 
-import { CalendarDays, ChevronDown, FolderKanban } from "lucide-react";
+import { CalendarDays, ChevronDown, CreditCard, FolderKanban } from "lucide-react";
 import { Button } from "@multica/ui/components/ui/button";
+import { Input } from "@multica/ui/components/ui/input";
+import { Label } from "@multica/ui/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@multica/ui/components/ui/popover";
+import { providerDisplayName } from "@multica/core/runtimes";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -141,5 +149,119 @@ export function ProjectFilter({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Page-scoped subscription pricing: a toggle plus a fee editor.
+ *
+ * Off, the page shows the metered rate-table estimate. On, every provider
+ * with a monthly fee has that estimate replaced by the fee prorated to the
+ * period (see applySubscriptionsToDaily). The on/off state is a toolbar
+ * button of its own so it can be read and flipped without opening anything;
+ * it follows the `ProjectFilter` grammar, muted while off and stating the
+ * monthly total while on, with `aria-pressed` carrying the state. The fee
+ * editor sits beside it as a popover with one field per provider seen in the
+ * window, so a new runtime shows up as soon as it reports usage.
+ */
+export function SubscriptionsFilter({
+  providers,
+  enabled,
+  fees,
+  onEnabledChange,
+  onFeeChange,
+}: {
+  providers: readonly string[];
+  enabled: boolean;
+  fees: Readonly<Record<string, number>>;
+  onEnabledChange: (enabled: boolean) => void;
+  onFeeChange: (provider: string, usd: number) => void;
+}) {
+  const { t, i18n } = useT("usage");
+  const label = t(($) => $.filter.subscriptions_label);
+  const monthlyTotal = providers.reduce((sum, p) => sum + (fees[p] ?? 0), 0);
+  const money = new Intl.NumberFormat(i18n.resolvedLanguage ?? i18n.language, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+
+  return (
+    <div className="flex items-center gap-0.5">
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label={label}
+        aria-pressed={enabled}
+        onClick={() => onEnabledChange(!enabled)}
+        className={
+          enabled
+            ? "gap-1 rounded-r-none px-2.5 font-medium"
+            : "gap-1 rounded-r-none px-2.5 text-muted-foreground"
+        }
+      >
+        <CreditCard className="size-3.5" />
+        <span className="tabular-nums">
+          {enabled
+            ? t(($) => $.subscriptions.active_label, {
+                amount: money.format(monthlyTotal),
+              })
+            : label}
+        </span>
+      </Button>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={t(($) => $.subscriptions.edit_fees)}
+              className="-ml-px rounded-l-none px-1.5 text-muted-foreground"
+            >
+              <ChevronDown className="size-3" />
+            </Button>
+          }
+        />
+        <PopoverContent align="end" className="w-72 space-y-3">
+          <div className="text-body font-medium">{t(($) => $.subscriptions.title)}</div>
+          <p className="text-caption text-muted-foreground">
+            {t(($) => $.subscriptions.description)}
+          </p>
+          {providers.length === 0 ? (
+            <p className="text-caption text-muted-foreground">
+              {t(($) => $.subscriptions.no_providers)}
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {providers.map((provider) => {
+                const name = providerDisplayName(provider);
+                const fieldId = `subscription-fee-${provider}`;
+                return (
+                  <li key={provider} className="flex items-center justify-between gap-3">
+                    <Label htmlFor={fieldId} className="truncate">
+                      {name}
+                    </Label>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span className="text-caption text-muted-foreground">$</span>
+                      <Input
+                        id={fieldId}
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1}
+                        className="w-20 text-right tabular-nums"
+                        value={fees[provider] ?? 0}
+                        onChange={(e) => onFeeChange(provider, Number(e.target.value))}
+                        aria-label={`${name} ${t(($) => $.subscriptions.per_month, { amount: "$" })}`}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </PopoverContent>
+      </Popover>
+    </div>
   );
 }

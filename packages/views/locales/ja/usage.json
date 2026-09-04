@@ -8,7 +8,16 @@
   "filter": {
     "project_label": "プロジェクト",
     "all_projects": "すべてのプロジェクト",
-    "period_label": "期間"
+    "period_label": "期間",
+    "subscriptions_label": "サブスクリプション"
+  },
+  "subscriptions": {
+    "title": "サブスクリプション",
+    "edit_fees": "サブスクリプション料金を編集",
+    "description": "定額サブスクリプションで支払っているプロバイダーについて、従量課金の見積もりを月額料金（選択した期間で日割り）に置き換えます。",
+    "per_month": "{{amount}} / 月",
+    "active_label": "{{amount}}/月",
+    "no_providers": "この期間にプロバイダーの使用量はありません。"
   },
   "kpi": {
     "cost_label": "コスト · {{days}}日",

@@ -29,6 +29,11 @@ export const costStackConfig = {
   output: { label: "Output", color: "var(--chart-2)" },
   cacheRead: { label: "Cache read", color: "var(--chart-4)" },
   cacheWrite: { label: "Cache write", color: "var(--chart-3)" },
+  // Flat-rate subscription fee (workspace dashboard only). Drawn at the
+  // bottom of the stack so a day with no fee keeps its rounded top segment,
+  // and in neutral grey rather than a step of the blue ramp: it is a fixed
+  // charge, not another kind of token spend.
+  subscription: { label: "Subscription", color: "var(--muted-foreground)" },
 } satisfies ChartConfig;
 
 export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
@@ -84,6 +89,13 @@ export function DailyCostChart({ data }: { data: DailyCostStackData[] }) {
         {/* Legend is intentionally rendered by the parent (in the chart card
             header, top-right) so the chart body stays clean and gets the full
             vertical real estate. */}
+        <Bar
+          dataKey="subscription"
+          stackId="cost"
+          fill="var(--color-subscription)"
+          fillOpacity={0.35}
+          radius={[0, 0, 0, 0]}
+        />
         <Bar
           dataKey="input"
           stackId="cost"

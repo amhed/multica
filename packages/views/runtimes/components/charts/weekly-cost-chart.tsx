@@ -24,6 +24,11 @@ export const weeklyCostStackConfig = {
   output: { label: "Output", color: "var(--chart-2)" },
   cacheRead: { label: "Cache read", color: "var(--chart-4)" },
   cacheWrite: { label: "Cache write", color: "var(--chart-3)" },
+  // Flat-rate subscription fee (workspace dashboard only). Drawn at the
+  // bottom of the stack so a day with no fee keeps its rounded top segment,
+  // and in neutral grey rather than a step of the blue ramp: it is a fixed
+  // charge, not another kind of token spend.
+  subscription: { label: "Subscription", color: "var(--muted-foreground)" },
 } satisfies ChartConfig;
 
 export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
@@ -83,6 +88,11 @@ export function WeeklyCostChart({ data }: { data: WeeklyCostStackData[] }) {
             />
           }
         />
+        <Bar dataKey="subscription" stackId="cost" fill="var(--color-subscription)">
+          {data.map((d) => (
+            <Cell key={d.weekStart} fillOpacity={d.partial ? 0.18 : 0.35} />
+          ))}
+        </Bar>
         <Bar dataKey="input" stackId="cost" fill="var(--color-input)">
           {data.map((d) => (
             <Cell key={d.weekStart} fillOpacity={d.partial ? 0.5 : 1} />

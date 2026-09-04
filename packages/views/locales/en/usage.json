@@ -8,7 +8,16 @@
   "filter": {
     "project_label": "Project",
     "all_projects": "All projects",
-    "period_label": "Period"
+    "period_label": "Period",
+    "subscriptions_label": "Subscriptions"
+  },
+  "subscriptions": {
+    "title": "Subscriptions",
+    "edit_fees": "Edit subscription fees",
+    "description": "Replace metered cost with the flat monthly fee for the providers you pay by subscription, prorated to the selected period.",
+    "per_month": "{{amount}} / month",
+    "active_label": "{{amount}}/mo",
+    "no_providers": "No provider usage in this period."
   },
   "kpi": {
     "cost_label": "Cost · {{days}}D",

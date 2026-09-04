@@ -243,7 +243,35 @@ vi.mock("@multica/core/runtimes/custom-pricing-store", () => {
       sel ? sel(state()) : state(),
     { getState: state },
   );
-  return { useCustomPricingStore };
+  // `resolvePricing` falls through to the override store for models the
+  // built-in table does not know — the subscription fee rows among them.
+  return { useCustomPricingStore, getCustomPricing: () => undefined };
+});
+
+// Flat-rate subscriptions. Off by default so the metered-cost arithmetic in
+// the other tests stays exact; the subscription tests flip `subsRef`.
+const subsRef = vi.hoisted(() => ({
+  enabled: false,
+  monthlyFees: { anthropic: 300 } as Record<string, number>,
+}));
+const setSubsEnabledSpy = vi.hoisted(() => vi.fn());
+vi.mock("@multica/core/runtimes/subscription-pricing-store", () => {
+  const state = () => ({
+    enabled: subsRef.enabled,
+    monthlyFees: subsRef.monthlyFees,
+    setEnabled: setSubsEnabledSpy,
+    setMonthlyFee: vi.fn(),
+  });
+  const useSubscriptionPricingStore = Object.assign(
+    (sel?: (s: ReturnType<typeof state>) => unknown) =>
+      sel ? sel(state()) : state(),
+    { getState: state },
+  );
+  return {
+    useSubscriptionPricingStore,
+    SUBSCRIPTION_MODEL: "__subscription__",
+    DEFAULT_SUBSCRIPTION_FEES: { claude: 200, codex: 100, grok: 100 },
+  };
 });
 
 import { DashboardPage } from "./dashboard-page";
@@ -783,5 +811,49 @@ describe("DashboardPage — leaderboard density", () => {
       gridTemplateColumns:
         "minmax(10rem, 1.6fr) minmax(6rem, 1fr) 5rem 5rem 5rem 4rem",
     });
+  });
+});
+
+describe("DashboardPage — flat-rate subscriptions", () => {
+  beforeEach(() => {
+    queryKeys.length = 0;
+    dashboardDataRef.current = true;
+    tzRef.current = "UTC";
+    subsRef.enabled = false;
+    setSubsEnabledSpy.mockClear();
+    cleanup();
+  });
+
+  it("replaces metered cost with the prorated subscription fee when enabled", () => {
+    // The fixture's only usage is on "anthropic", subscribed at $300/month;
+    // the default 30d window therefore reads the whole fee, not the $0.03
+    // rate-table estimate.
+    subsRef.enabled = true;
+    const { container } = renderDashboard();
+    const labels = Array.from(
+      container.querySelectorAll("number-flow-react"),
+    ).map((flow) => flow.getAttribute("aria-label"));
+    expect(labels).toContain("$300");
+    expect(labels).not.toContain("$0.03");
+    // Token and run KPIs are untouched by the fee.
+    expect(labels).toEqual(expect.arrayContaining(["3K", "12"]));
+  });
+
+  it("turns subscription pricing on from the toolbar toggle", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    const toggle = screen.getByRole("button", { name: "Subscriptions" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await user.click(toggle);
+    expect(setSubsEnabledSpy).toHaveBeenCalledWith(true);
+  });
+
+  it("edits monthly fees from the separate fee editor", async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+    await user.click(screen.getByRole("button", { name: "Edit subscription fees" }));
+    expect(screen.getByRole("spinbutton", { name: /Anthropic/ })).toHaveValue(300);
+    // The editor holds fees only; the on/off state lives in the toolbar.
+    expect(screen.queryByRole("switch")).toBeNull();
   });
 });

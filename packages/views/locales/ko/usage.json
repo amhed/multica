@@ -8,7 +8,16 @@
   "filter": {
     "project_label": "프로젝트",
     "all_projects": "모든 프로젝트",
-    "period_label": "기간"
+    "period_label": "기간",
+    "subscriptions_label": "구독"
+  },
+  "subscriptions": {
+    "title": "구독",
+    "edit_fees": "구독 요금 편집",
+    "description": "구독으로 결제하는 프로바이더의 사용량 기반 비용을 월 정액 요금(선택한 기간에 맞춰 일할 계산)으로 대체합니다.",
+    "per_month": "{{amount}} / 월",
+    "active_label": "{{amount}}/월",
+    "no_providers": "이 기간에 프로바이더 사용량이 없습니다."
   },
   "kpi": {
     "cost_label": "비용 · {{days}}일",
