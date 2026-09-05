@@ -55,3 +55,13 @@ export const useSubscriptionPricingStore = create<SubscriptionPricingState>()(
     },
   ),
 );
+
+// Vanilla accessor for non-React callers: the monthly fee covering `provider`
+// while subscriptions are on, else 0. `estimateCost` in
+// packages/views/runtimes/utils.ts reads it so that usage on a subscribed
+// provider prices at zero everywhere, not just on the dashboard.
+export function getSubscriptionFee(provider: string | undefined): number {
+  const { enabled, monthlyFees } = useSubscriptionPricingStore.getState();
+  if (!enabled || !provider) return 0;
+  return monthlyFees[provider.trim().toLowerCase()] ?? 0;
+}

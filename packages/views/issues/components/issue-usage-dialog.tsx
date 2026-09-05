@@ -11,6 +11,7 @@ import {
 } from "@multica/ui/components/ui/dialog";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { useT } from "../../i18n";
 import { formatDuration } from "../../agents/components/agent-activity-hover-content";
@@ -56,6 +57,8 @@ export function IssueUsageDialog({
   // showing the old price until the task list happens to refetch. Same reason
   // the runtime usage page subscribes in usage-section.tsx.
   const pricings = useCustomPricingStore((s) => s.pricings);
+  const subscriptions = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const subscriptionsOn = useSubscriptionPricingStore((s) => s.enabled);
 
   // Only runs that actually recorded usage earn a row: a run with no figure
   // contributes nothing to compare and would just add an all-em-dash line.
@@ -68,7 +71,7 @@ export function IssueUsageDialog({
 
   const total = useMemo(
     () => summarizeTaskUsageAcross(priced.map((task) => task.usage)),
-    [priced, pricings],
+    [priced, pricings, subscriptions, subscriptionsOn],
   );
 
   const agentIds = useMemo(
@@ -81,7 +84,7 @@ export function IssueUsageDialog({
   // reality. Saying so is the difference between an estimate and a wrong number.
   const unmapped = useMemo(
     () => collectUnmappedModels(priced.flatMap((task) => task.usage ?? [])),
-    [priced, pricings],
+    [priced, pricings, subscriptions, subscriptionsOn],
   );
 
   // Floor, not round: on a cache-heavy issue 99.55% rounds to "100% hit rate",
@@ -218,6 +221,8 @@ function CostByAgent({
   const { t } = useT("issues");
   const { getActorName } = useActorName();
   const pricings = useCustomPricingStore((s) => s.pricings);
+  const subscriptions = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const subscriptionsOn = useSubscriptionPricingStore((s) => s.enabled);
 
   const rows = useMemo(() => {
     return agentIds
@@ -227,7 +232,7 @@ function CostByAgent({
         return { agentId, cost: summary?.cost ?? 0, tokens: summary?.tokens ?? 0 };
       })
       .toSorted((a, b) => b.cost - a.cost);
-  }, [agentIds, tasks, pricings]);
+  }, [agentIds, tasks, pricings, subscriptions, subscriptionsOn]);
 
   const maxCost = rows.reduce((m, r) => Math.max(m, r.cost), 0);
 

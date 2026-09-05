@@ -1,6 +1,9 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
-import { SUBSCRIPTION_MODEL } from "@multica/core/runtimes";
+import {
+  SUBSCRIPTION_MODEL,
+  useSubscriptionPricingStore,
+} from "@multica/core/runtimes/subscription-pricing-store";
 import type { AgentRuntime, RuntimeUsage } from "@multica/core/types";
 
 import {
@@ -25,6 +28,60 @@ import {
 afterEach(() => {
   // Reset overrides so tests don't bleed pricing state into one another.
   useCustomPricingStore.setState({ pricings: {} });
+  useSubscriptionPricingStore.setState({ enabled: false, monthlyFees: {} });
+});
+
+describe("estimateCost under a flat-rate subscription", () => {
+  const claudeRow: RuntimeUsage = {
+    runtime_id: "r",
+    date: "2026-05-10",
+    provider: "claude",
+    model: "claude-sonnet-4-6",
+    input_tokens: 1_000_000,
+    output_tokens: 0,
+    cache_read_tokens: 0,
+    cache_write_tokens: 0,
+  };
+  const grokRow: RuntimeUsage = {
+    ...claudeRow,
+    provider: "grok",
+    model: "grok-4",
+    input_tokens: 10,
+    cost_usd_ticks: 5 * 1e10,
+  };
+
+  it("keeps pricing metered usage while subscriptions are off", () => {
+    useSubscriptionPricingStore.setState({ enabled: false, monthlyFees: { claude: 200 } });
+    expect(estimateCost(claudeRow)).toBe(3);
+  });
+
+  it("prices a subscribed provider's usage at zero when subscriptions are on", () => {
+    useSubscriptionPricingStore.setState({ enabled: true, monthlyFees: { claude: 200 } });
+    expect(estimateCost(claudeRow)).toBe(0);
+    expect(estimateCostBreakdown(claudeRow)).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
+    // Unsubscribed providers keep their (authoritative) charge.
+    expect(estimateCost(grokRow)).toBe(5);
+  });
+
+  it("still prices the fee rows that carry the subscription itself", () => {
+    useSubscriptionPricingStore.setState({ enabled: true, monthlyFees: { claude: 200 } });
+    const feeRow: RuntimeUsage = {
+      ...claudeRow,
+      model: SUBSCRIPTION_MODEL,
+      input_tokens: 0,
+      uncosted_input_tokens: 0,
+      uncosted_output_tokens: 0,
+      uncosted_cache_read_tokens: 0,
+      uncosted_cache_write_tokens: 0,
+      cost_usd_ticks: 10 * 1e10,
+    };
+    expect(estimateCost(feeRow)).toBe(10);
+  });
 });
 
 const zeroUsage = {

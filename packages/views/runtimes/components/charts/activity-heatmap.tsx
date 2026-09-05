@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { RuntimeUsage } from "@multica/core/types";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import { addDaysIso, estimateCost, formatUsd, todayIso, weekStartIso } from "../../utils";
 import { useLocale, useT } from "../../../i18n";
 
@@ -74,6 +75,8 @@ export function ActivityHeatmap({
   // Memo dep — estimateCost (called inside the body below) consults the
   // user-override store, so saving a custom rate must invalidate the cells.
   const pricings = useCustomPricingStore((s) => s.pricings);
+  const subscriptions = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const subscriptionsOn = useSubscriptionPricingStore((s) => s.enabled);
   const { cells, monthLabels, insights } = useMemo(() => {
     // Sum priced cost per day. Cost (not tokens) gives the colour scale a
     // financial meaning that lines up with the rest of the page — a "hot"
@@ -201,7 +204,7 @@ export function ActivityHeatmap({
     };
 
     return { cells: cellsWithLevel, monthLabels: months, insights };
-  }, [usage, pricings, tz, locale]);
+  }, [usage, pricings, subscriptions, subscriptionsOn, tz, locale]);
 
   const labelWidth = 28;
   const svgWidth = labelWidth + HEATMAP_WEEKS * (CELL_SIZE + CELL_GAP);

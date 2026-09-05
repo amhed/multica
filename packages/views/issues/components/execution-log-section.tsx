@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { api, dispatchReasonCode } from "@multica/core/api";
 import { issueKeys } from "@multica/core/issues/queries";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import type { AgentTask } from "@multica/core/types";
 import { useTimeAgo } from "../../i18n";
 import {
@@ -245,9 +246,11 @@ export function IssueUsageTotal({
   // depend on the snapshot, or the header total keeps quoting the old price
   // until the task list refetches.
   const pricings = useCustomPricingStore((s) => s.pricings);
+  const subscriptions = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const subscriptionsOn = useSubscriptionPricingStore((s) => s.enabled);
   const total = useMemo(
     () => summarizeTaskUsageAcross(tasks.map((task) => task.usage)),
-    [tasks, pricings],
+    [tasks, pricings, subscriptions, subscriptionsOn],
   );
   if (!total) return null;
 

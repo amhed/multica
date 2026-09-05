@@ -4,7 +4,10 @@ import type {
   RuntimeUsageByAgent,
 } from "@multica/core/types";
 import { getCustomPricing } from "@multica/core/runtimes/custom-pricing-store";
-import { SUBSCRIPTION_MODEL } from "@multica/core/runtimes/subscription-pricing-store";
+import {
+  getSubscriptionFee,
+  SUBSCRIPTION_MODEL,
+} from "@multica/core/runtimes/subscription-pricing-store";
 
 // A live local daemon re-registers itself within seconds of a server-side
 // delete (daemon self-heal, #2404), so deleting an online local runtime from
@@ -657,7 +660,15 @@ function uncostedTokens(usage: Priceable): {
 // either side of a CLI upgrade). Custom pricing overrides still apply — but
 // only to the estimated half, since they are a user's guess at a rate and the
 // authoritative half is not a guess.
+// Usage on a provider the team pays for by flat-rate subscription costs
+// nothing extra per call. The fee itself travels on synthetic
+// SUBSCRIPTION_MODEL rows (dashboard only), which must keep their price.
+function coveredBySubscription(usage: Priceable): boolean {
+  return usage.model !== SUBSCRIPTION_MODEL && getSubscriptionFee(usage.provider) > 0;
+}
+
 export function estimateCost(usage: Priceable): number {
+  if (coveredBySubscription(usage)) return 0;
   const authoritative = (usage.cost_usd_ticks ?? 0) / COST_USD_TICKS_PER_USD;
   const pricing = resolvePricing(usage.model, usage.provider);
   if (!pricing) return authoritative;
@@ -686,6 +697,9 @@ export interface CostBreakdown {
 // this way keeps the stacked chart summing to the headline figure instead of
 // silently under-drawing every Grok row.
 export function estimateCostBreakdown(usage: Priceable): CostBreakdown {
+  if (coveredBySubscription(usage)) {
+    return { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  }
   const pricing = resolvePricing(usage.model, usage.provider);
   if (!pricing) {
     // No rates to split by, but the provider may still have priced the turn

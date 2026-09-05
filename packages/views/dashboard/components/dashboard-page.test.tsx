@@ -270,6 +270,8 @@ vi.mock("@multica/core/runtimes/subscription-pricing-store", () => {
   return {
     useSubscriptionPricingStore,
     SUBSCRIPTION_MODEL: "__subscription__",
+    getSubscriptionFee: (provider: string) =>
+      subsRef.enabled ? (subsRef.monthlyFees[provider] ?? 0) : 0,
     DEFAULT_SUBSCRIPTION_FEES: { claude: 200, codex: 100, grok: 100 },
   };
 });

@@ -18,6 +18,7 @@ import {
   runtimeUsageByAgentOptions,
 } from "@multica/core/runtimes/queries";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import { useViewingTimezone } from "../../common/use-viewing-timezone";
 import {
   formatTokens,
@@ -145,6 +146,8 @@ export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
   // aggregate sub-components (WhenChart, CostByBlock, ActivityHeatmap) each
   // subscribe on their own and pass pricings as a memo dep there.
   useCustomPricingStore((s) => s.pricings);
+  useSubscriptionPricingStore((s) => s.enabled);
+  useSubscriptionPricingStore((s) => s.monthlyFees);
 
   if (loading) return <UsageSkeleton />;
   if (usage.length === 0) return <UsageEmpty />;
@@ -349,10 +352,12 @@ function WhenChart({
   // the user override store. Without listing pricings here the memos cache
   // pre-override totals when query data hasn't changed.
   const pricings = useCustomPricingStore((s) => s.pricings);
+  const subscriptions = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const subscriptionsOn = useSubscriptionPricingStore((s) => s.enabled);
 
   const { dailyCostStack, dailyTokens } = useMemo(
     () => aggregateByDate(filtered),
-    [filtered, pricings],
+    [filtered, pricings, subscriptions, subscriptionsOn],
   );
   // Weekly aggregation builds exactly N trailing calendar weeks anchored at
   // today (in the runtime tz). Buckets are pre-zeroed inside aggregateByWeek
@@ -362,7 +367,7 @@ function WhenChart({
   const weekCount = Math.max(1, Math.ceil(days / 7));
   const { weeklyTokens, weeklyCostStack } = useMemo(
     () => aggregateByWeek(usage, tz, weekCount),
-    [usage, tz, weekCount, pricings],
+    [usage, tz, weekCount, pricings, subscriptions, subscriptionsOn],
   );
 
   const metricToggleVisible = !showHeatmap;
@@ -663,6 +668,8 @@ function CostByBlock({
   // Memo dep — same reason as WhenChart: aggregateCostBy{Agent,Model} call
   // estimateCost, which now reads the override store.
   const pricings = useCustomPricingStore((s) => s.pricings);
+  const subscriptions = useSubscriptionPricingStore((s) => s.monthlyFees);
+  const subscriptionsOn = useSubscriptionPricingStore((s) => s.enabled);
 
   // by-agent is server-side aggregation (fetched lazily on tab activation).
   // by-model derives from the daily cache the parent already has — free.
@@ -676,11 +683,11 @@ function CostByBlock({
 
   const byAgent = useMemo(
     () => aggregateCostByAgent(byAgentRows),
-    [byAgentRows, pricings],
+    [byAgentRows, pricings, subscriptions, subscriptionsOn],
   );
   const byModel = useMemo(
     () => aggregateCostByModel(usage),
-    [usage, pricings],
+    [usage, pricings, subscriptions, subscriptionsOn],
   );
 
   const caption =

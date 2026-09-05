@@ -54,6 +54,7 @@ import type { AgentTask, Agent, AgentRuntime } from "@multica/core/types/agent";
 import { resolveWorkdirCopyTarget } from "@multica/core/issues";
 import { runtimeDisplayName, providerDisplayName } from "@multica/core/runtimes";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
+import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import { redactSecrets } from "./redact";
 import {
   createLiveEndFollow,
@@ -827,6 +828,8 @@ export function AgentTranscriptDialog({
   // imperatively — subscribing here is what makes a saved rate change reach
   // this figure, same as on the other usage surfaces.
   useCustomPricingStore((s) => s.pricings);
+  useSubscriptionPricingStore((s) => s.enabled);
+  useSubscriptionPricingStore((s) => s.monthlyFees);
   const usage = summarizeTaskUsage(task.usage);
   // Two separate things, deliberately not one string (#7411):
   //   • `reasonLabel` — the localized reason, derived from the stable
