@@ -23,8 +23,10 @@ vi.mock("../i18n", () => ({
 vi.mock("../navigation", () => ({
   AppLink: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
+const workspaceSlug = { current: "acme" };
 vi.mock("@multica/core/paths", () => ({
   useWorkspacePaths: () => ({ issueDetail: (id: string) => `/acme/issues/${id}` }),
+  useWorkspaceSlug: () => workspaceSlug.current,
 }));
 
 const snapshot = { current: undefined as unknown };
@@ -35,10 +37,12 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
 
 afterEach(() => {
   snapshot.current = undefined;
+  workspaceSlug.current = "acme";
 });
 
 const alpha = {
   repo: "tinydevelopersllc/segurohq",
+  workspace: null,
   workflow: "Deploy to staging",
   run: {
     status: "completed",
@@ -54,6 +58,7 @@ const alpha = {
 };
 const beta = {
   repo: "tinydevelopersllc/venue-site",
+  workspace: null,
   workflow: "Deploy staging",
   run: { ...alpha.run, status: "in_progress", conclusion: null, url: "https://github.com/tinydevelopersllc/venue-site/actions/runs/2" },
   pr: null,
@@ -91,6 +96,32 @@ describe("StagingDeployCard", () => {
     );
     // venue-site has no PR or issue, so only one of each link exists.
     expect(screen.getAllByRole("link")).toHaveLength(4);
+  });
+
+  it("shows a workspace-bound row only in its workspace, and unbound rows everywhere", () => {
+    snapshot.current = {
+      ...fixture,
+      deploys: [{ ...alpha, workspace: "segurohq" }, { ...beta, workspace: "la-pagina" }],
+    };
+    workspaceSlug.current = "la-pagina";
+    const { container, rerender } = render(<StagingDeployCard />);
+    expect(screen.getByText("venue-site")).toBeInTheDocument();
+    expect(screen.queryByText("segurohq")).not.toBeInTheDocument();
+
+    workspaceSlug.current = "segurohq";
+    rerender(<StagingDeployCard />);
+    expect(screen.getByText("segurohq")).toBeInTheDocument();
+    expect(screen.queryByText("venue-site")).not.toBeInTheDocument();
+
+    // Neither row belongs to this workspace, so the strip disappears entirely.
+    workspaceSlug.current = "other";
+    rerender(<StagingDeployCard />);
+    expect(container).toBeEmptyDOMElement();
+
+    snapshot.current = { ...fixture, deploys: [alpha, { ...beta, workspace: "la-pagina" }] };
+    rerender(<StagingDeployCard />);
+    expect(screen.getByText("segurohq")).toBeInTheDocument();
+    expect(screen.queryByText("venue-site")).not.toBeInTheDocument();
   });
 
   it("marks a failed run", () => {

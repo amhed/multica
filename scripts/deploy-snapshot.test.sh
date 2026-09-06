@@ -29,7 +29,7 @@ FAKE
 chmod +x "$TMP/bin/gh"
 
 export PATH="$TMP/bin:$PATH"
-export DEPLOY_TARGETS="acme/alpha:deploy-staging.yml acme/beta:deploy-staging.yml" DEPLOY_OUT="$TMP/deploy.json"
+export DEPLOY_TARGETS="acme/alpha:deploy-staging.yml:alpha-ws acme/beta:deploy-staging.yml" DEPLOY_OUT="$TMP/deploy.json"
 bash "$ROOT_DIR/scripts/deploy-snapshot.sh"
 
 expect() {
@@ -43,6 +43,7 @@ expect() {
 expect '.schema' 'multica.deploy.v2'
 expect '.deploys | length' '2'
 expect '.deploys[0].repo' 'acme/alpha'
+expect '.deploys[0].workspace' 'alpha-ws'
 expect '.deploys[0].workflow' 'Deploy to staging'
 expect '.deploys[0].run.conclusion' 'success'
 expect '.deploys[0].run.actor' 'amhed'
@@ -50,6 +51,8 @@ expect '.deploys[0].pr.number' '195'
 expect '.deploys[0].issueIdentifier' 'SEG-222'
 # Second target: running, no PR for the commit, so no links.
 expect '.deploys[1].repo' 'acme/beta'
+# No slug: the row is not restricted to a workspace.
+expect '.deploys[1].workspace' 'null'
 expect '.deploys[1].run.status' 'in_progress'
 expect '.deploys[1].run.conclusion' 'null'
 expect '.deploys[1].pr' 'null'

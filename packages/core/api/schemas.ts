@@ -1050,6 +1050,8 @@ export interface DeployPullRequest {
 
 export interface DeployEntry {
   repo: string;
+  /** Workspace slug the row is restricted to; null shows it everywhere. */
+  workspace: string | null;
   workflow: string;
   run: DeployRun;
   pr: DeployPullRequest | null;
@@ -1080,6 +1082,7 @@ const DeployPullRequestSchema = z.object({
 
 const DeployEntrySchema = z.object({
   repo: z.string(),
+  workspace: OptionalStringSchema.nullable().catch(null).default(null),
   workflow: z.string().default(""),
   run: DeployRunSchema,
   pr: DeployPullRequestSchema.nullable().catch(null).default(null),

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CircleCheck, CircleDashed, CircleX, ExternalLink, Loader2 } from "lucide-react";
 import type { DeployEntry, DeployRun } from "@multica/core/api/schemas";
 import { deployOptions } from "@multica/core/deploy/queries";
-import { useWorkspacePaths } from "@multica/core/paths";
+import { useWorkspacePaths, useWorkspaceSlug } from "@multica/core/paths";
 import { cn } from "@multica/ui/lib/utils";
 import { AppLink } from "../navigation";
 import { useT, useTimeAgo } from "../i18n";
@@ -16,14 +16,16 @@ import { useT, useTimeAgo } from "../i18n";
  * script wrapping `gh api`). Renders nothing when the server has no snapshot
  * or the snapshot lists no deploys, so deployments without a collector see no
  * empty box. The PR and issue links are whatever the collector resolved from
- * the run's head commit; either may be absent.
+ * the run's head commit; either may be absent. An entry that names a
+ * workspace is shown only in that workspace, so each team sees its own repo.
  */
 export function StagingDeployCard() {
   const { t } = useT("layout");
   const timeAgo = useTimeAgo();
   const wsPaths = useWorkspacePaths();
+  const slug = useWorkspaceSlug();
   const { data } = useQuery(deployOptions());
-  const deploys = data?.deploys ?? [];
+  const deploys = (data?.deploys ?? []).filter((d) => d.workspace === null || d.workspace === slug);
   if (deploys.length === 0) return null;
 
   return (

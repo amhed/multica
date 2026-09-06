@@ -7,8 +7,11 @@
 # provider quota collector. Needs `gh` (authenticated with read access to
 # actions and pull requests on each repo) and `jq`.
 #
-#   DEPLOY_TARGETS  space-separated owner/repo:workflow-file entries (required)
-#                   e.g. "acme/alpha:deploy-staging.yml acme/beta:deploy-staging.yml"
+#   DEPLOY_TARGETS  space-separated owner/repo:workflow-file[:workspace-slug]
+#                   entries (required), e.g.
+#                   "acme/alpha:deploy-staging.yml:alpha acme/beta:deploy-staging.yml"
+#                   The optional slug restricts the row to one Multica
+#                   workspace; without it the row shows in every workspace.
 #   DEPLOY_OUT      output path, default ~/.multica/deploy.json
 #
 # Each run's head commit is resolved to the PR that introduced it, and the
@@ -21,8 +24,7 @@ OUT="${DEPLOY_OUT:-$HOME/.multica/deploy.json}"
 
 deploys="[]"
 for target in $DEPLOY_TARGETS; do
-  repo="${target%%:*}"
-  workflow="${target#*:}"
+  IFS=: read -r repo workflow workspace <<<"$target"
   run=$(gh api "repos/$repo/actions/workflows/$workflow/runs?per_page=1" \
     --jq '.workflow_runs[0] // empty')
   if [ -z "$run" ]; then
@@ -44,8 +46,10 @@ for target in $DEPLOY_TARGETS; do
     fi
   fi
 
-  entry=$(jq -n --arg repo "$repo" --argjson run "$run" --argjson pr "$pr" --argjson issue "$issue" '{
+  entry=$(jq -n --arg repo "$repo" --arg workspace "${workspace:-}" \
+    --argjson run "$run" --argjson pr "$pr" --argjson issue "$issue" '{
     repo: $repo,
+    workspace: (if $workspace == "" then null else $workspace end),
     workflow: ($run.name // ""),
     run: {
       status: ($run.status // ""),

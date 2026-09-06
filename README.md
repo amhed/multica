@@ -261,10 +261,11 @@ Without the snapshot the card renders nothing.
 
    ```bash
    GH_TOKEN=ghp_...
-   DEPLOY_TARGETS="tinydevelopersllc/segurohq:deploy-staging.yml tinydevelopersllc/venue-site:deploy-staging.yml"
+   DEPLOY_TARGETS="tinydevelopersllc/segurohq:deploy-staging.yml:segurohq tinydevelopersllc/venue-site:deploy-staging.yml:la-pagina"
    ```
 
-   Each target is `owner/repo:workflow-file`, separated by spaces.
+   Each target is `owner/repo:workflow-file[:workspace-slug]`, separated by spaces.
+   With a workspace slug the row appears only in that workspace; without one it appears in every workspace.
 
 3. Run it once by hand and check the output.
 

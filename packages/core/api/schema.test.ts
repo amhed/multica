@@ -719,6 +719,7 @@ describe("ApiClient schema fallback", () => {
   describe("getDeploy", () => {
     const entry = {
       repo: "acme/alpha",
+      workspace: "alpha-ws",
       workflow: "Deploy to staging",
       run: {
         status: "completed",
@@ -740,19 +741,22 @@ describe("ApiClient schema fallback", () => {
       expect(deploy?.deploys.map((d) => d.repo)).toEqual(["acme/alpha", "acme/beta"]);
       expect(deploy?.deploys[0]?.pr?.number).toBe(195);
       expect(deploy?.deploys[0]?.issueIdentifier).toBe("SEG-222");
+      expect(deploy?.deploys[0]?.workspace).toBe("alpha-ws");
       expect(deploy?.deploys[1]?.pr).toBeNull();
     });
 
     it("drops a malformed pr but keeps the entry, and drops an entry without a run", async () => {
       stubFetchJson({
         schema: "multica.deploy.v2",
-        deploys: [{ ...entry, pr: { number: "nope" } }, { repo: "acme/broken" }],
+        deploys: [{ ...entry, pr: { number: "nope" }, workspace: 7 }, { repo: "acme/broken" }],
       });
       const client = new ApiClient("https://api.example.test");
       const deploy = await client.getDeploy();
       expect(deploy?.deploys).toHaveLength(1);
       expect(deploy?.deploys[0]?.run.status).toBe("completed");
       expect(deploy?.deploys[0]?.pr).toBeNull();
+      // A collector without the workspace field, or a bad value, shows everywhere.
+      expect(deploy?.deploys[0]?.workspace).toBeNull();
     });
 
     it("falls back to an empty snapshot when the response is malformed", async () => {
