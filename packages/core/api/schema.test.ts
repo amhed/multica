@@ -716,6 +716,63 @@ describe("ApiClient schema fallback", () => {
     });
   });
 
+  describe("getDeploy", () => {
+    it("parses a deploy snapshot with run, pr and issue link", async () => {
+      stubFetchJson({
+        schema: "multica.deploy.v1",
+        workflow: "Deploy to Staging",
+        run: {
+          status: "completed",
+          conclusion: "success",
+          url: "https://github.com/o/r/actions/runs/1",
+          createdAt: "2026-09-05T10:00:00Z",
+          updatedAt: "2026-09-05T10:05:00Z",
+          actor: "amhed",
+          ref: "fix/p3-9",
+        },
+        pr: { number: 197, title: "fix(P3-9): simulator (LAP-304)", url: "https://github.com/o/r/pull/197" },
+        issueIdentifier: "LAP-304",
+      });
+      const client = new ApiClient("https://api.example.test");
+      const deploy = await client.getDeploy();
+      expect(deploy?.run?.conclusion).toBe("success");
+      expect(deploy?.pr?.number).toBe(197);
+      expect(deploy?.issueIdentifier).toBe("LAP-304");
+    });
+
+    it("drops a malformed pr but keeps the run", async () => {
+      stubFetchJson({
+        schema: "multica.deploy.v1",
+        run: { status: "in_progress", url: "https://github.com/o/r/actions/runs/2" },
+        pr: { number: "nope" },
+      });
+      const client = new ApiClient("https://api.example.test");
+      const deploy = await client.getDeploy();
+      expect(deploy?.run?.status).toBe("in_progress");
+      expect(deploy?.run?.conclusion).toBeNull();
+      expect(deploy?.pr).toBeNull();
+      expect(deploy?.issueIdentifier).toBeNull();
+    });
+
+    it("falls back to an empty snapshot when the response is malformed", async () => {
+      stubFetchJson(["not", "an", "object"]);
+      const client = new ApiClient("https://api.example.test");
+      expect(await client.getDeploy()).toEqual({
+        schema: "",
+        workflow: "",
+        run: null,
+        pr: null,
+        issueIdentifier: null,
+      });
+    });
+
+    it("returns null when the server has no snapshot (404)", async () => {
+      stubFetchJson({ error: "deploy snapshot not available" }, 404);
+      const client = new ApiClient("https://api.example.test");
+      expect(await client.getDeploy()).toBeNull();
+    });
+  });
+
   describe("listGroupedIssues", () => {
     it("falls back to empty groups when the response is malformed", async () => {
       stubFetchJson({ groups: "not-an-array" });

@@ -240,6 +240,69 @@ We release most weekdays, so `main` moves quickly — pull often.
 
 ---
 
+## Fork addition: staging deploy card
+
+This fork shows the latest GitHub Actions staging deploy in the sidebar footer, above the provider quota meter.
+The card shows the run status, when it ran, who triggered it, the deployed ref, the linked Multica issue, and the PR.
+It is fed the same way as the quota meter: a cron script on the host writes a JSON snapshot, and the server relays it at `GET /api/deploy`.
+Without the snapshot the card renders nothing.
+
+### Server setup
+
+1. Install the collector for the `multica` user.
+
+   ```bash
+   install -m 755 scripts/deploy-snapshot.sh /home/multica/.local/bin/multica-deploy-snapshot
+   ```
+
+2. Give it a GitHub token.
+   Create a fine-grained personal access token on the repository that runs the deploy workflow with `Actions: read` and `Pull requests: read`.
+   Store it in `/home/multica/.multica/deploy-snapshot.env` (mode `600`, owned by `multica`):
+
+   ```bash
+   GH_TOKEN=github_pat_...
+   DEPLOY_REPO=payment-stack/monorepo
+   DEPLOY_WORKFLOW=staging-deploy.yml
+   ```
+
+3. Run it once by hand and check the output.
+
+   ```bash
+   sudo -u multica -H bash -c 'set -a; . ~/.multica/deploy-snapshot.env; set +a; multica-deploy-snapshot && cat ~/.multica/deploy.json'
+   ```
+
+4. Add a cron entry for the `multica` user.
+
+   ```cron
+   */5 * * * * set -a; . /home/multica/.multica/deploy-snapshot.env; set +a; /home/multica/.local/bin/multica-deploy-snapshot >> /home/multica/.multica/deploy-snapshot.log 2>&1
+   ```
+
+5. Point the backend container at the file.
+   The backend cannot see `/home/multica/.multica` by default.
+   The quota meter already mounts that directory as `/host-quota`, so only the environment variable is new.
+   In the untracked `docker-compose.override.local.yml` add, under the `backend` service:
+
+   ```yaml
+   environment:
+     MULTICA_DEPLOY_FILE: /host-quota/deploy.json
+   volumes:
+     - /home/multica/.multica:/host-quota:ro
+   ```
+
+   Then recreate the backend (`deploy.sh` does this on the next deploy).
+
+6. Name the deploy runs after the deployed ref.
+   The GitHub API does not expose `workflow_dispatch` inputs, so the workflow must put the ref in its run name:
+
+   ```yaml
+   run-name: Deploy ${{ inputs.git_ref }} to staging
+   ```
+
+   The collector looks up the PR whose head branch is that ref and takes the last `KEY-123` token in the PR title as the Multica issue identifier.
+   Runs dispatched before this change show no ref and no links.
+
+Verify with an authenticated `curl` against `/api/deploy`: `404` means the file is missing or the variable is not set, `401` unauthenticated means the route exists.
+
 ## Why "Multica"?
 
 **Mul**tiplexed **I**nformation and **C**omputing **A**gent — a nod to Multics, the 1960s

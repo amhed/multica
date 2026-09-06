@@ -1530,6 +1530,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		r.Get("/api/me", h.GetMe)
 		// Provider quota snapshot written by the host-side collector; see handler.GetQuota.
 		r.Get("/api/quota", h.GetQuota)
+		// Staging deploy snapshot written by the host-side collector; see handler.GetDeploy.
+		r.Get("/api/deploy", h.GetDeploy)
 		r.Patch("/api/me", h.UpdateMe)
 		r.Patch("/api/me/onboarding", h.PatchOnboarding)
 		r.Post("/api/me/onboarding/complete", h.CompleteOnboarding)

@@ -60,6 +60,13 @@
       "title": "Join our Discord",
       "dismiss": "Dismiss"
     },
+    "deploy": {
+      "title": "Staging deploy",
+      "success": "Deploy succeeded",
+      "failed": "Deploy failed",
+      "cancelled": "Deploy cancelled",
+      "running": "Deploy running"
+    },
     "quota": {
       "title": "Provider quota",
       "stale": "Stale",

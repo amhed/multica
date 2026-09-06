@@ -8,6 +8,7 @@ import { AppLink, useNavigation } from "../navigation";
 import { HelpLauncher } from "./help-launcher";
 import { JoinDiscordCard } from "./join-discord-card";
 import { QuotaMeter } from "./quota-meter";
+import { StagingDeployCard } from "./staging-deploy-card";
 import {
   DndContext,
   PointerSensor,
@@ -881,6 +882,7 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
         </SidebarContent>
 
         <SidebarFooter className="p-2">
+          <StagingDeployCard />
           <QuotaMeter />
           {/* One utility strip: the Discord link takes the leading space the
               help trigger was leaving empty. `justify-end` keeps the trigger

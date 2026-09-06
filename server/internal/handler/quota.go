@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
-	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,25 +26,5 @@ func quotaFilePath() (string, error) {
 // "nothing to show" rather than an error.
 func (h *Handler) GetQuota(w http.ResponseWriter, r *http.Request) {
 	path, err := quotaFilePath()
-	if err != nil {
-		writeError(w, http.StatusNotFound, "quota snapshot not available")
-		return
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			writeError(w, http.StatusNotFound, "quota snapshot not available")
-			return
-		}
-		writeError(w, http.StatusInternalServerError, "failed to read quota snapshot")
-		return
-	}
-	if !json.Valid(data) {
-		writeError(w, http.StatusInternalServerError, "quota snapshot is not valid JSON")
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	relayHostSnapshot(w, path, err, "quota snapshot")
 }

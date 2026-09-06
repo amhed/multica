@@ -272,6 +272,9 @@ import {
   EMPTY_QUOTA_SNAPSHOT,
   QuotaSnapshotSchema,
   type QuotaSnapshot,
+  EMPTY_DEPLOY_SNAPSHOT,
+  DeploySnapshotSchema,
+  type DeploySnapshot,
   EMPTY_ATTACHMENT,
   EMPTY_CHAT_MESSAGE_LIST,
   EMPTY_CHAT_PENDING_TASK,
@@ -2550,6 +2553,23 @@ export class ApiClient {
     }
     return parseWithFallback<QuotaSnapshot>(raw, QuotaSnapshotSchema, EMPTY_QUOTA_SNAPSHOT, {
       endpoint: "GET /api/quota",
+    });
+  }
+
+  /**
+   * Staging deploy snapshot relayed from the host. `null` when the server has
+   * no snapshot (404), which the UI treats as "nothing to show".
+   */
+  async getDeploy(): Promise<DeploySnapshot | null> {
+    let raw: unknown;
+    try {
+      raw = await this.fetch<unknown>("/api/deploy");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return null;
+      throw err;
+    }
+    return parseWithFallback<DeploySnapshot>(raw, DeploySnapshotSchema, EMPTY_DEPLOY_SNAPSHOT, {
+      endpoint: "GET /api/deploy",
     });
   }
 

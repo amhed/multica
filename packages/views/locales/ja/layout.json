@@ -60,6 +60,13 @@
       "title": "Discord に参加",
       "dismiss": "閉じる"
     },
+    "deploy": {
+      "title": "ステージングデプロイ",
+      "success": "デプロイ成功",
+      "failed": "デプロイ失敗",
+      "cancelled": "デプロイ中止",
+      "running": "デプロイ中"
+    },
     "quota": {
       "title": "プロバイダーのクォータ",
       "stale": "古いデータ",

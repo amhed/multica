@@ -1022,6 +1022,73 @@ export const EMPTY_QUOTA_SNAPSHOT: QuotaSnapshot = {
   providers: {},
 };
 
+// ---------------------------------------------------------------------------
+// Staging deploy snapshot (GET /api/deploy)
+// ---------------------------------------------------------------------------
+//
+// Written on the host by a cron collector wrapping `gh run list` and relayed
+// verbatim by the server. `run` is the latest workflow run; `pr` and
+// `issueIdentifier` are best-effort links the collector resolved from the run
+// name. Lenient so a newer collector degrades to "partially shown".
+
+export interface DeployRun {
+  status: string;
+  conclusion: string | null;
+  url: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  actor: string | null;
+  ref: string | null;
+}
+
+export interface DeployPullRequest {
+  number: number;
+  title: string;
+  url: string;
+}
+
+export interface DeploySnapshot {
+  schema: string;
+  generatedAt?: string;
+  workflow: string;
+  run: DeployRun | null;
+  pr: DeployPullRequest | null;
+  issueIdentifier: string | null;
+}
+
+const DeployRunSchema = z.object({
+  status: z.string().default(""),
+  conclusion: OptionalStringSchema.nullable().default(null),
+  url: z.string().default(""),
+  createdAt: OptionalStringSchema.nullable().default(null),
+  updatedAt: OptionalStringSchema.nullable().default(null),
+  actor: OptionalStringSchema.nullable().default(null),
+  ref: OptionalStringSchema.nullable().default(null),
+}).loose();
+
+const DeployPullRequestSchema = z.object({
+  number: z.number(),
+  title: z.string().default(""),
+  url: z.string().default(""),
+}).loose();
+
+export const DeploySnapshotSchema = z.object({
+  schema: z.string().default(""),
+  generatedAt: OptionalStringSchema.optional(),
+  workflow: z.string().default(""),
+  run: DeployRunSchema.nullable().catch(null).default(null),
+  pr: DeployPullRequestSchema.nullable().catch(null).default(null),
+  issueIdentifier: OptionalStringSchema.nullable().catch(null).default(null),
+}).loose();
+
+export const EMPTY_DEPLOY_SNAPSHOT: DeploySnapshot = {
+  schema: "",
+  workflow: "",
+  run: null,
+  pr: null,
+  issueIdentifier: null,
+};
+
 export const EMPTY_APP_CONFIG: AppConfigResponse = {
   cdn_domain: "",
   cdn_signed: false,

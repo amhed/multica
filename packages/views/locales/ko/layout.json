@@ -60,6 +60,13 @@
       "title": "Discord 참여하기",
       "dismiss": "닫기"
     },
+    "deploy": {
+      "title": "스테이징 배포",
+      "success": "배포 성공",
+      "failed": "배포 실패",
+      "cancelled": "배포 취소됨",
+      "running": "배포 진행 중"
+    },
     "quota": {
       "title": "프로바이더 할당량",
       "stale": "오래된 데이터",
