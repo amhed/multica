@@ -10,7 +10,6 @@ vi.mock("../i18n", () => ({
       sel({
         sidebar: {
           deploy: {
-            title: "Staging deploy",
             success: "Deploy succeeded",
             failed: "Deploy failed",
             cancelled: "Deploy cancelled",
@@ -38,63 +37,65 @@ afterEach(() => {
   snapshot.current = undefined;
 });
 
-const fixture = {
-  schema: "multica.deploy.v1",
-  workflow: "Deploy to Staging",
+const alpha = {
+  repo: "tinydevelopersllc/segurohq",
+  workflow: "Deploy to staging",
   run: {
     status: "completed",
     conclusion: "success",
-    url: "https://github.com/o/r/actions/runs/1",
+    url: "https://github.com/tinydevelopersllc/segurohq/actions/runs/1",
     createdAt: "2026-09-05T10:00:00Z",
     updatedAt: "2026-09-05T10:05:00Z",
     actor: "amhed",
-    ref: "fix/p3-9",
+    headSha: "1a30d1c",
   },
-  pr: { number: 197, title: "fix(P3-9): simulator (LAP-304)", url: "https://github.com/o/r/pull/197" },
-  issueIdentifier: "LAP-304",
+  pr: { number: 195, title: "fix(SEG-222): decode bytea", url: "https://github.com/tinydevelopersllc/segurohq/pull/195" },
+  issueIdentifier: "SEG-222",
 };
+const beta = {
+  repo: "tinydevelopersllc/venue-site",
+  workflow: "Deploy staging",
+  run: { ...alpha.run, status: "in_progress", conclusion: null, url: "https://github.com/tinydevelopersllc/venue-site/actions/runs/2" },
+  pr: null,
+  issueIdentifier: null,
+};
+const fixture = { schema: "multica.deploy.v2", deploys: [alpha, beta] };
 
 describe("StagingDeployCard", () => {
-  it("renders nothing without a snapshot or without a run", () => {
+  it("renders nothing without a snapshot or without deploys", () => {
     snapshot.current = null;
     const { container, rerender } = render(<StagingDeployCard />);
     expect(container).toBeEmptyDOMElement();
-    snapshot.current = { ...fixture, run: null };
+    snapshot.current = { ...fixture, deploys: [] };
     rerender(<StagingDeployCard />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("links the run, the issue in the current workspace, and the PR", () => {
+  it("renders one row per repo, linking the run, the issue in the current workspace, and the PR", () => {
     snapshot.current = fixture;
     render(<StagingDeployCard />);
 
-    expect(screen.getByRole("link", { name: "Deploy succeeded" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "segurohq: Deploy succeeded" })).toHaveAttribute(
       "href",
-      "https://github.com/o/r/actions/runs/1",
+      "https://github.com/tinydevelopersllc/segurohq/actions/runs/1",
     );
-    expect(screen.getByText("2h ago")).toBeInTheDocument();
-    expect(screen.getByText("fix/p3-9")).toBeInTheDocument();
-    expect(screen.getByText("amhed")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "LAP-304" })).toHaveAttribute("href", "/acme/issues/LAP-304");
-    expect(screen.getByRole("link", { name: /#197/ })).toHaveAttribute("href", "https://github.com/o/r/pull/197");
-  });
-
-  it("shows a running state and skips absent links", () => {
-    snapshot.current = {
-      ...fixture,
-      run: { ...fixture.run, status: "in_progress", conclusion: null },
-      pr: null,
-      issueIdentifier: null,
-    };
-    render(<StagingDeployCard />);
-    expect(screen.getByRole("link", { name: "Deploy running" })).toBeInTheDocument();
-    expect(screen.queryByText("LAP-304")).not.toBeInTheDocument();
-    expect(screen.queryByText(/#197/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "venue-site: Deploy running" })).toHaveAttribute(
+      "href",
+      "https://github.com/tinydevelopersllc/venue-site/actions/runs/2",
+    );
+    expect(screen.getAllByText("2h ago")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "SEG-222" })).toHaveAttribute("href", "/acme/issues/SEG-222");
+    expect(screen.getByRole("link", { name: /#195/ })).toHaveAttribute(
+      "href",
+      "https://github.com/tinydevelopersllc/segurohq/pull/195",
+    );
+    // venue-site has no PR or issue, so only one of each link exists.
+    expect(screen.getAllByRole("link")).toHaveLength(4);
   });
 
   it("marks a failed run", () => {
-    snapshot.current = { ...fixture, run: { ...fixture.run, conclusion: "failure" } };
+    snapshot.current = { ...fixture, deploys: [{ ...alpha, run: { ...alpha.run, conclusion: "failure" } }] };
     render(<StagingDeployCard />);
-    expect(screen.getByRole("link", { name: "Deploy failed" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "segurohq: Deploy failed" })).toBeInTheDocument();
   });
 });

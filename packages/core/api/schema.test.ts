@@ -717,53 +717,48 @@ describe("ApiClient schema fallback", () => {
   });
 
   describe("getDeploy", () => {
-    it("parses a deploy snapshot with run, pr and issue link", async () => {
-      stubFetchJson({
-        schema: "multica.deploy.v1",
-        workflow: "Deploy to Staging",
-        run: {
-          status: "completed",
-          conclusion: "success",
-          url: "https://github.com/o/r/actions/runs/1",
-          createdAt: "2026-09-05T10:00:00Z",
-          updatedAt: "2026-09-05T10:05:00Z",
-          actor: "amhed",
-          ref: "fix/p3-9",
-        },
-        pr: { number: 197, title: "fix(P3-9): simulator (LAP-304)", url: "https://github.com/o/r/pull/197" },
-        issueIdentifier: "LAP-304",
-      });
+    const entry = {
+      repo: "acme/alpha",
+      workflow: "Deploy to staging",
+      run: {
+        status: "completed",
+        conclusion: "success",
+        url: "https://github.com/acme/alpha/actions/runs/1",
+        createdAt: "2026-09-05T10:00:00Z",
+        updatedAt: "2026-09-05T10:05:00Z",
+        actor: "amhed",
+        headSha: "1a30d1c",
+      },
+      pr: { number: 195, title: "fix(SEG-222): decode bytea", url: "https://github.com/acme/alpha/pull/195" },
+      issueIdentifier: "SEG-222",
+    };
+
+    it("parses one entry per tracked repo", async () => {
+      stubFetchJson({ schema: "multica.deploy.v2", deploys: [entry, { ...entry, repo: "acme/beta", pr: null, issueIdentifier: null }] });
       const client = new ApiClient("https://api.example.test");
       const deploy = await client.getDeploy();
-      expect(deploy?.run?.conclusion).toBe("success");
-      expect(deploy?.pr?.number).toBe(197);
-      expect(deploy?.issueIdentifier).toBe("LAP-304");
+      expect(deploy?.deploys.map((d) => d.repo)).toEqual(["acme/alpha", "acme/beta"]);
+      expect(deploy?.deploys[0]?.pr?.number).toBe(195);
+      expect(deploy?.deploys[0]?.issueIdentifier).toBe("SEG-222");
+      expect(deploy?.deploys[1]?.pr).toBeNull();
     });
 
-    it("drops a malformed pr but keeps the run", async () => {
+    it("drops a malformed pr but keeps the entry, and drops an entry without a run", async () => {
       stubFetchJson({
-        schema: "multica.deploy.v1",
-        run: { status: "in_progress", url: "https://github.com/o/r/actions/runs/2" },
-        pr: { number: "nope" },
+        schema: "multica.deploy.v2",
+        deploys: [{ ...entry, pr: { number: "nope" } }, { repo: "acme/broken" }],
       });
       const client = new ApiClient("https://api.example.test");
       const deploy = await client.getDeploy();
-      expect(deploy?.run?.status).toBe("in_progress");
-      expect(deploy?.run?.conclusion).toBeNull();
-      expect(deploy?.pr).toBeNull();
-      expect(deploy?.issueIdentifier).toBeNull();
+      expect(deploy?.deploys).toHaveLength(1);
+      expect(deploy?.deploys[0]?.run.status).toBe("completed");
+      expect(deploy?.deploys[0]?.pr).toBeNull();
     });
 
     it("falls back to an empty snapshot when the response is malformed", async () => {
       stubFetchJson(["not", "an", "object"]);
       const client = new ApiClient("https://api.example.test");
-      expect(await client.getDeploy()).toEqual({
-        schema: "",
-        workflow: "",
-        run: null,
-        pr: null,
-        issueIdentifier: null,
-      });
+      expect(await client.getDeploy()).toEqual({ schema: "", deploys: [] });
     });
 
     it("returns null when the server has no snapshot (404)", async () => {

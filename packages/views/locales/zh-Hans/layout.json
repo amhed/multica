@@ -61,7 +61,6 @@
       "dismiss": "关闭"
     },
     "deploy": {
-      "title": "预发布部署",
       "success": "部署成功",
       "failed": "部署失败",
       "cancelled": "部署已取消",

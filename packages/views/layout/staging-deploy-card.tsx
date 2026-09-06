@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { CircleCheck, CircleDashed, CircleX, ExternalLink, Loader2 } from "lucide-react";
-import type { DeployRun } from "@multica/core/api/schemas";
+import type { DeployEntry, DeployRun } from "@multica/core/api/schemas";
 import { deployOptions } from "@multica/core/deploy/queries";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { cn } from "@multica/ui/lib/utils";
@@ -10,65 +10,87 @@ import { AppLink } from "../navigation";
 import { useT, useTimeAgo } from "../i18n";
 
 /**
- * Sidebar footer strip showing the latest staging deploy run.
+ * Sidebar footer strip showing the latest staging deploy of each tracked repo.
  *
  * Fed by the host-side collector snapshot relayed at GET /api/deploy (a cron
- * script wrapping `gh run list`). Renders nothing when the server has no
- * snapshot or the snapshot carries no run, so deployments without a collector
- * see no empty box. The PR and issue links are whatever the collector resolved
- * from the run name; either may be absent.
+ * script wrapping `gh api`). Renders nothing when the server has no snapshot
+ * or the snapshot lists no deploys, so deployments without a collector see no
+ * empty box. The PR and issue links are whatever the collector resolved from
+ * the run's head commit; either may be absent.
  */
 export function StagingDeployCard() {
   const { t } = useT("layout");
   const timeAgo = useTimeAgo();
   const wsPaths = useWorkspacePaths();
   const { data } = useQuery(deployOptions());
-  const run = data?.run ?? null;
-  if (!run) return null;
-
-  const when = run.updatedAt ?? run.createdAt;
-  const { Icon, className, label } = describeRun(run, t);
+  const deploys = data?.deploys ?? [];
+  if (deploys.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1 px-2 pb-2 text-caption">
+    <div className="flex flex-col gap-2 px-2 pb-2 text-caption">
+      {deploys.map((deploy) => (
+        <DeployRow
+          key={deploy.repo}
+          deploy={deploy}
+          issueHref={deploy.issueIdentifier ? wsPaths.issueDetail(deploy.issueIdentifier) : null}
+          when={(iso) => timeAgo(iso)}
+          describe={(run) => describeRun(run, t)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DeployRow({
+  deploy,
+  issueHref,
+  when,
+  describe,
+}: {
+  deploy: DeployEntry;
+  issueHref: string | null;
+  when: (iso: string) => string;
+  describe: (run: DeployRun) => { Icon: typeof CircleCheck; className: string; label: string };
+}) {
+  const { run, pr, issueIdentifier } = deploy;
+  const updated = run.updatedAt ?? run.createdAt;
+  const { Icon, className, label } = describe(run);
+  // "owner/repo" reads as noise in a narrow sidebar; the repo name alone is
+  // what distinguishes the rows.
+  const shortRepo = deploy.repo.split("/").pop() ?? deploy.repo;
+
+  return (
+    <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1.5">
         <a
           href={run.url}
           target="_blank"
           rel="noopener noreferrer"
-          title={label}
-          aria-label={label}
+          title={`${deploy.workflow}: ${label}`}
+          aria-label={`${shortRepo}: ${label}`}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-foreground hover:underline"
         >
           <Icon className={cn("size-3.5 shrink-0", className)} aria-hidden />
-          <span className="truncate font-medium">{t(($) => $.sidebar.deploy.title)}</span>
+          <span className="truncate font-medium">{shortRepo}</span>
         </a>
-        {when && <span className="shrink-0 text-muted-foreground">{timeAgo(when)}</span>}
+        {updated && <span className="shrink-0 text-muted-foreground">{when(updated)}</span>}
       </div>
-      <div className="flex min-w-0 items-center gap-1 text-muted-foreground">
-        {run.ref && <span className="truncate font-mono">{run.ref}</span>}
-        {run.ref && run.actor && <span aria-hidden>·</span>}
-        {run.actor && <span className="shrink-0 truncate">{run.actor}</span>}
-      </div>
-      {(data?.issueIdentifier || data?.pr) && (
-        <div className="flex min-w-0 items-center gap-2">
-          {data?.issueIdentifier && (
-            <AppLink
-              href={wsPaths.issueDetail(data.issueIdentifier)}
-              className="shrink-0 font-medium text-foreground hover:underline"
-            >
-              {data.issueIdentifier}
+      {(issueIdentifier || pr) && (
+        <div className="flex min-w-0 items-center gap-2 pl-5">
+          {issueIdentifier && issueHref && (
+            <AppLink href={issueHref} className="shrink-0 font-medium text-foreground hover:underline">
+              {issueIdentifier}
             </AppLink>
           )}
-          {data?.pr && (
+          {pr && (
             <a
-              href={data.pr.url}
+              href={pr.url}
               target="_blank"
               rel="noopener noreferrer"
-              title={data.pr.title}
+              title={pr.title}
               className="flex min-w-0 items-center gap-0.5 text-muted-foreground hover:underline"
             >
-              <span className="truncate">#{data.pr.number}</span>
+              <span className="truncate">#{pr.number}</span>
               <ExternalLink className="size-3 shrink-0" aria-hidden />
             </a>
           )}

@@ -61,7 +61,6 @@
       "dismiss": "閉じる"
     },
     "deploy": {
-      "title": "ステージングデプロイ",
       "success": "デプロイ成功",
       "failed": "デプロイ失敗",
       "cancelled": "デプロイ中止",

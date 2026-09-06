@@ -61,7 +61,6 @@
       "dismiss": "Dismiss"
     },
     "deploy": {
-      "title": "Staging deploy",
       "success": "Deploy succeeded",
       "failed": "Deploy failed",
       "cancelled": "Deploy cancelled",

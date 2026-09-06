@@ -1026,10 +1026,11 @@ export const EMPTY_QUOTA_SNAPSHOT: QuotaSnapshot = {
 // Staging deploy snapshot (GET /api/deploy)
 // ---------------------------------------------------------------------------
 //
-// Written on the host by a cron collector wrapping `gh run list` and relayed
-// verbatim by the server. `run` is the latest workflow run; `pr` and
-// `issueIdentifier` are best-effort links the collector resolved from the run
-// name. Lenient so a newer collector degrades to "partially shown".
+// Written on the host by a cron collector wrapping `gh api` and relayed
+// verbatim by the server. One entry per tracked repo: its latest workflow run
+// plus the PR and issue identifier the collector resolved from the run's head
+// commit. Lenient so a newer collector degrades to "partially shown"; an entry
+// that fails to parse is dropped rather than failing the whole list.
 
 export interface DeployRun {
   status: string;
@@ -1038,7 +1039,7 @@ export interface DeployRun {
   createdAt: string | null;
   updatedAt: string | null;
   actor: string | null;
-  ref: string | null;
+  headSha: string | null;
 }
 
 export interface DeployPullRequest {
@@ -1047,13 +1048,18 @@ export interface DeployPullRequest {
   url: string;
 }
 
+export interface DeployEntry {
+  repo: string;
+  workflow: string;
+  run: DeployRun;
+  pr: DeployPullRequest | null;
+  issueIdentifier: string | null;
+}
+
 export interface DeploySnapshot {
   schema: string;
   generatedAt?: string;
-  workflow: string;
-  run: DeployRun | null;
-  pr: DeployPullRequest | null;
-  issueIdentifier: string | null;
+  deploys: DeployEntry[];
 }
 
 const DeployRunSchema = z.object({
@@ -1063,7 +1069,7 @@ const DeployRunSchema = z.object({
   createdAt: OptionalStringSchema.nullable().default(null),
   updatedAt: OptionalStringSchema.nullable().default(null),
   actor: OptionalStringSchema.nullable().default(null),
-  ref: OptionalStringSchema.nullable().default(null),
+  headSha: OptionalStringSchema.nullable().default(null),
 }).loose();
 
 const DeployPullRequestSchema = z.object({
@@ -1072,21 +1078,31 @@ const DeployPullRequestSchema = z.object({
   url: z.string().default(""),
 }).loose();
 
-export const DeploySnapshotSchema = z.object({
-  schema: z.string().default(""),
-  generatedAt: OptionalStringSchema.optional(),
+const DeployEntrySchema = z.object({
+  repo: z.string(),
   workflow: z.string().default(""),
-  run: DeployRunSchema.nullable().catch(null).default(null),
+  run: DeployRunSchema,
   pr: DeployPullRequestSchema.nullable().catch(null).default(null),
   issueIdentifier: OptionalStringSchema.nullable().catch(null).default(null),
 }).loose();
 
+export const DeploySnapshotSchema = z.object({
+  schema: z.string().default(""),
+  generatedAt: OptionalStringSchema.optional(),
+  deploys: z
+    .array(z.unknown())
+    .default([])
+    .transform((items) =>
+      items.flatMap((item) => {
+        const parsed = DeployEntrySchema.safeParse(item);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    ),
+}).loose();
+
 export const EMPTY_DEPLOY_SNAPSHOT: DeploySnapshot = {
   schema: "",
-  workflow: "",
-  run: null,
-  pr: null,
-  issueIdentifier: null,
+  deploys: [],
 };
 
 export const EMPTY_APP_CONFIG: AppConfigResponse = {

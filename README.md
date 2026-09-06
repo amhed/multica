@@ -242,8 +242,8 @@ We release most weekdays, so `main` moves quickly — pull often.
 
 ## Fork addition: staging deploy card
 
-This fork shows the latest GitHub Actions staging deploy in the sidebar footer, above the provider quota meter.
-The card shows the run status, when it ran, who triggered it, the deployed ref, the linked Multica issue, and the PR.
+This fork shows the latest GitHub Actions staging deploy of each tracked repo in the sidebar footer, above the provider quota meter.
+Each row shows the run status, when it ran, the Multica issue the deployed PR belongs to, and the PR itself.
 It is fed the same way as the quota meter: a cron script on the host writes a JSON snapshot, and the server relays it at `GET /api/deploy`.
 Without the snapshot the card renders nothing.
 
@@ -255,16 +255,16 @@ Without the snapshot the card renders nothing.
    install -m 755 scripts/deploy-snapshot.sh /home/multica/.local/bin/multica-deploy-snapshot
    ```
 
-2. Give it a GitHub token.
-   Create a fine-grained personal access token on the repository that runs the deploy workflow with `Actions: read` and `Pull requests: read`.
-   The token's account must be able to see the repository; a `404` from `gh api repos/<owner>/<repo>` means it cannot (missing `repo` scope on a classic token, or the account is not a member of the org).
-   Store it in `/home/multica/.multica/deploy-snapshot.env` (mode `600`, owned by `multica`):
+2. Give it a GitHub token and the repos to track.
+   The token's account needs read access to actions and pull requests on every tracked repo; a `404` from `gh api repos/<owner>/<repo>` means it cannot see the repo.
+   Store both in `/home/multica/.multica/deploy-snapshot.env` (mode `600`, owned by `multica`):
 
    ```bash
-   GH_TOKEN=github_pat_...
-   DEPLOY_REPO=payment-stack/monorepo
-   DEPLOY_WORKFLOW=staging-deploy.yml
+   GH_TOKEN=ghp_...
+   DEPLOY_TARGETS="tinydevelopersllc/segurohq:deploy-staging.yml tinydevelopersllc/venue-site:deploy-staging.yml"
    ```
+
+   Each target is `owner/repo:workflow-file`, separated by spaces.
 
 3. Run it once by hand and check the output.
 
@@ -292,16 +292,7 @@ Without the snapshot the card renders nothing.
 
    Then recreate the backend (`deploy.sh` does this on the next deploy).
 
-6. Name the deploy runs after the deployed ref.
-   The GitHub API does not expose `workflow_dispatch` inputs, so the workflow must put the ref in its run name:
-
-   ```yaml
-   run-name: Deploy ${{ inputs.git_ref }} to staging
-   ```
-
-   The collector looks up the PR whose head branch is that ref and takes the last `KEY-123` token in the PR title as the Multica issue identifier.
-   Runs dispatched before this change show no ref and no links.
-
+The collector resolves each run's head commit to the PR that introduced it and takes the last `KEY-123` token in the PR title as the Multica issue identifier, so the workflow itself needs no changes.
 Verify with an authenticated `curl` against `/api/deploy`: `404` means the file is missing or the variable is not set, `401` unauthenticated means the route exists.
 
 ## Why "Multica"?
