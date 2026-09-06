@@ -257,6 +257,7 @@ Without the snapshot the card renders nothing.
 
 2. Give it a GitHub token.
    Create a fine-grained personal access token on the repository that runs the deploy workflow with `Actions: read` and `Pull requests: read`.
+   The token's account must be able to see the repository; a `404` from `gh api repos/<owner>/<repo>` means it cannot (missing `repo` scope on a classic token, or the account is not a member of the org).
    Store it in `/home/multica/.multica/deploy-snapshot.env` (mode `600`, owned by `multica`):
 
    ```bash
@@ -268,7 +269,7 @@ Without the snapshot the card renders nothing.
 3. Run it once by hand and check the output.
 
    ```bash
-   sudo -u multica -H bash -c 'set -a; . ~/.multica/deploy-snapshot.env; set +a; multica-deploy-snapshot && cat ~/.multica/deploy.json'
+   sudo -u multica -H bash -c 'set -a; . ~/.multica/deploy-snapshot.env; set +a; ~/.local/bin/multica-deploy-snapshot && cat ~/.multica/deploy.json'
    ```
 
 4. Add a cron entry for the `multica` user.
