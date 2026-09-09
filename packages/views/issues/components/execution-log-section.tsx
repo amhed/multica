@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Loader2, RotateCcw, Square } from "lucide-react";
 import { toast } from "sonner";
 import { api, dispatchReasonCode } from "@multica/core/api";
-import { issueKeys } from "@multica/core/issues/queries";
+import { issueTasksOptions } from "@multica/core/issues/queries";
 import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-store";
 import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import type { AgentTask } from "@multica/core/types";
@@ -20,6 +20,7 @@ import { formatDuration } from "../../agents/components/agent-activity-hover-con
 import { TranscriptButton } from "../../common/task-transcript";
 import { cancelReasonLabel, failureReasonLabel } from "../../agents/components/tabs/task-failure";
 import { useT } from "../../i18n";
+import { compareActiveIssueTasks } from "./active-task-order";
 import {
   formatTokens,
   formatUsd,
@@ -81,12 +82,7 @@ export function ExecutionLogSection({ issueId, identifier }: ExecutionLogSection
   // a `["issues", "tasks"]` prefix-match — no local WS subscriptions
   // needed, and the cache stays fresh even when this component isn't
   // mounted (e.g. user cancels from agent-side, then navigates here).
-  const { data: tasks = [] } = useQuery({
-    queryKey: issueKeys.tasks(issueId),
-    queryFn: () => api.listTasksByIssue(issueId),
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
-  });
+  const { data: tasks = [] } = useQuery(issueTasksOptions(issueId));
 
   const activeTasks = useMemo(
     () =>
@@ -99,7 +95,7 @@ export function ExecutionLogSection({ issueId, identifier }: ExecutionLogSection
           // what tells the user the agent is alive and will resume.
           t.status === "waiting_local_directory" ||
           t.status === "running",
-      ),
+      ).toSorted(compareActiveIssueTasks),
     [tasks],
   );
 
@@ -314,7 +310,7 @@ export function ActiveTaskRow({
 }: {
   task: AgentTask;
   issueId: string;
-  onTranscriptOpenChange?: (open: boolean) => void;
+  onTranscriptOpenChange?: (open: boolean, fromKeyboard?: boolean) => void;
 }) {
   const { t } = useT("issues");
   const [cancelling, setCancelling] = useState(false);
