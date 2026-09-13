@@ -17,7 +17,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   return {
     ...config,
     name: isProd
-      ? "SeguroHQ Multica"
+      ? (process.env.EXPO_APP_NAME ?? "Carropana Multica")
       : isStaging
         ? "Multica (Staging)"
         : "Multica (Dev)",
@@ -29,7 +29,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     // 1024x1024 source shared with the desktop client
     // (apps/desktop/build/icon.png). Expo prebuild generates every required
     // iOS icon size from this single PNG.
-    icon: "./assets/icon-blue.png",
+    icon: process.env.EXPO_APP_ICON ?? "./assets/icon-blue.png",
     ios: {
       // Expo keeps the top-level portrait policy for iPhone while adding all
       // iPad orientations required for multitasking when tablet support is on.
