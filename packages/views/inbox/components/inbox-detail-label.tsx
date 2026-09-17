@@ -5,6 +5,7 @@ import { formatDateOnly } from "@multica/core/issues/date";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { StatusIcon, PriorityIcon } from "../../issues/components";
 import type { InboxItem, InboxItemType, IssueStatus, IssuePriority } from "@multica/core/types";
+import { inboxCommentPreview } from "./inbox-preview";
 import { getQuickCreateOutcomeDetail } from "./inbox-display";
 import { useLocale, useT } from "../../i18n";
 import { useStatusLabel } from "../../issues/utils/status-label";
@@ -108,7 +109,7 @@ export function InboxDetailLabel({ item }: { item: InboxItem }) {
       return <span>{t(($) => $.labels.removed_due_date)}</span>;
     }
     case "new_comment": {
-      if (item.body) return <span>{item.body}</span>;
+      if (item.body) return <span>{inboxCommentPreview(item.body)}</span>;
       return <span>{typeLabels[item.type]}</span>;
     }
     case "reaction_added": {

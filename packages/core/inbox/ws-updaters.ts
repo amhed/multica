@@ -1,6 +1,6 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import { inboxKeys } from "./queries";
-import type { InboxItem, IssuePriority, IssueStatus } from "../types";
+import type { InboxItem, Issue, IssuePriority, IssueStatus } from "../types";
 
 // Re-read a query because the server changed — in a way that is never answered
 // by a request that was already on the wire before the change.
@@ -75,17 +75,23 @@ export function patchInboxIssueProjection(
   const project = (old: InboxItem[]) => {
     let changed = false;
     const next = old.map((item) => {
-      if (item.issue_id !== issueId) return item;
+      const ancestorMatch = patch.status !== undefined &&
+        item.issue_ancestors?.some(a => a.id === issueId);
+      if (item.issue_id !== issueId && !ancestorMatch) return item;
       changed = true;
       return {
         ...item,
-        ...(patch.status !== undefined
+        ...(ancestorMatch ? {
+          issue_ancestors: item.issue_ancestors?.map(a =>
+            a.id === issueId ? { ...a, status: patch.status! } : a),
+        } : {}),
+        ...(item.issue_id === issueId && patch.status !== undefined
           ? { issue_status: patch.status }
           : {}),
         // Do not manufacture the projection on data returned by an older
         // backend. Capability detection relies on `undefined` continuing to
         // mean "this endpoint version does not provide issue_priority".
-        ...(patch.priority !== undefined && item.issue_priority !== undefined
+        ...(item.issue_id === issueId && patch.priority !== undefined && item.issue_priority !== undefined
           ? { issue_priority: patch.priority }
           : {}),
       };
@@ -114,6 +120,37 @@ export function onInboxIssueStatusChanged(
   patchInboxIssueStatus(qc, wsId, issueId, status);
 }
 
+export async function onInboxIssueUpdated(
+  qc: QueryClient,
+  wsId: string,
+  issue: Pick<Issue, "id" | "status" | "title" | "parent_issue_id">,
+) {
+  let hierarchyChanged = isInboxListRequestInFlight(qc, wsId);
+  patchInboxIssueStatus(qc, wsId, issue.id, issue.status);
+  patchInboxLists(qc, wsId, items => {
+    let changed = false;
+    const next = items.map(item => {
+      const ancestors = item.issue_ancestors ?? [];
+      const index = ancestors.findIndex(a => a.id === issue.id);
+      if (item.issue_id === issue.id || index >= 0) {
+        const parentId = ancestors[item.issue_id === issue.id ? 0 : index + 1]?.id ?? null;
+        if (issue.parent_issue_id !== undefined && parentId !== issue.parent_issue_id) {
+          hierarchyChanged = true;
+        }
+      }
+      if (index < 0 || ancestors[index]?.title === issue.title) return item;
+      changed = true;
+      return {
+        ...item,
+        issue_ancestors: ancestors.map(a => a.id === issue.id ? { ...a, title: issue.title } : a),
+      };
+    });
+    return changed ? next : items;
+  });
+  // Reparenting needs the new ancestor path, which an issue event does not carry.
+  if (hierarchyChanged) await onInboxInvalidate(qc, wsId);
+}
+
 // Mirrors the DB-level ON DELETE CASCADE on inbox_item.issue_id: when an issue
 // is deleted, all inbox items that referenced it are gone server-side, so drop
 // them from the cache too — from the archived list as well, which holds rows
@@ -130,10 +167,19 @@ export async function onInboxIssueDeleted(
   wsId: string,
   issueId: string,
 ) {
+  let hierarchyChanged = isInboxListRequestInFlight(qc, wsId);
   patchInboxLists(qc, wsId, (items) =>
-    items.filter((i) => i.issue_id !== issueId),
+    items.filter((i) => i.issue_id !== issueId).map(item => {
+      const index = item.issue_ancestors?.findIndex(a => a.id === issueId) ?? -1;
+      if (index < 0) return item;
+      hierarchyChanged = true;
+      return { ...item, issue_ancestors: item.issue_ancestors?.slice(0, index) };
+    }),
   );
-  await onInboxSummaryInvalidate(qc);
+  await Promise.all([
+    onInboxSummaryInvalidate(qc),
+    ...(hierarchyChanged ? [onInboxInvalidate(qc, wsId)] : []),
+  ]);
 }
 
 // Whether a request for either inbox list is out (paused ones included).

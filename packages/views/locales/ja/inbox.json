@@ -7,7 +7,8 @@
     "mark_all_read": "すべて既読にする",
     "archive_all": "すべてアーカイブ",
     "archive_all_read": "既読の項目をすべてアーカイブ",
-    "archive_completed": "完了した項目をアーカイブ"
+    "archive_completed": "完了した項目をアーカイブ",
+    "actions_aria": "受信トレイの操作"
   },
   "filters": {
     "tooltip": "インボックスを絞り込む",
@@ -108,5 +109,13 @@
     "archive_completed_failed": "完了した項目をアーカイブできませんでした",
     "unarchive_failed": "アーカイブ解除に失敗しました",
     "archived_load_failed": "アーカイブ済み通知を読み込めませんでした"
+  },
+  "hierarchy": {
+    "parent_context": "親タスク",
+    "expand": "{{title}}を展開",
+    "collapse": "{{title}}を折りたたむ",
+    "child_updates_other": "子タスクの更新 {{count}} 件",
+    "unread_other": "未読 {{count}} 件",
+    "ancestor_path": "親タスクの階層"
   }
 }

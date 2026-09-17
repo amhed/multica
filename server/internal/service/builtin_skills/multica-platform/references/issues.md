@@ -9,6 +9,7 @@ Product contracts the runtime brief does not fully encode.
 - [Claim ownership without duplicating a run](#claim-ownership-without-duplicating-a-run)
 - [Who else is running right now](#who-else-is-running-right-now)
 - [Sub-issues: todo starts work now, backlog parks it](#sub-issues-todo-starts-work-now-backlog-parks-it)
+- [Inbox hierarchy](#inbox-hierarchy)
 - [Incorrect to correct](#incorrect-to-correct)
 
 ## PR linking and close intent are two distinct contracts
@@ -403,3 +404,14 @@ multica issue create --title "Step 1" --parent <issue-id> --assignee <agent> --s
 multica issue create --title "Step 2" --parent <issue-id> --assignee <agent> --stage 2 --status backlog
 multica issue create --title "Step 3" --parent <issue-id> --assignee <agent> --stage 3 --status backlog
 ```
+
+## Inbox hierarchy
+
+The [Inbox guide](https://multica.ai/docs/inbox#related-issues-stay-together)
+owns the member-facing grouping, filtering, navigation, and read/archive behavior.
+
+Inbox list responses may include `issue_ancestors`, ordered from the immediate
+parent to the root, with each ancestor's `id`, `title`, and `status`. The field
+is optional; clients must accept responses without it. Ancestors belong to the
+same workspace and provide context only, with read/archive actions applying to
+individual notifications. The lookup batches issues and stops at ancestry cycles.

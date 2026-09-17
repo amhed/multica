@@ -7,7 +7,8 @@
     "mark_all_read": "Mark all as read",
     "archive_all": "Archive all",
     "archive_all_read": "Archive all read",
-    "archive_completed": "Archive completed"
+    "archive_completed": "Archive completed",
+    "actions_aria": "Inbox actions"
   },
   "filters": {
     "tooltip": "Filter inbox",
@@ -110,5 +111,15 @@
     "archive_completed_failed": "Failed to archive completed",
     "unarchive_failed": "Failed to unarchive",
     "archived_load_failed": "Failed to load archived notifications"
+  },
+  "hierarchy": {
+    "parent_context": "Parent context",
+    "expand": "Expand {{title}}",
+    "collapse": "Collapse {{title}}",
+    "child_updates_one": "{{count}} child update",
+    "child_updates_other": "{{count}} child updates",
+    "unread_one": "{{count}} unread",
+    "unread_other": "{{count}} unread",
+    "ancestor_path": "Parent issue path"
   }
 }

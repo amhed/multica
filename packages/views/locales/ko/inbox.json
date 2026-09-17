@@ -7,7 +7,8 @@
     "mark_all_read": "모두 읽음으로 표시",
     "archive_all": "모두 보관",
     "archive_all_read": "읽은 항목 모두 보관",
-    "archive_completed": "완료된 항목 보관"
+    "archive_completed": "완료된 항목 보관",
+    "actions_aria": "받은 편지함 작업"
   },
   "filters": {
     "tooltip": "인박스 필터",
@@ -108,5 +109,13 @@
     "archive_completed_failed": "완료된 항목을 보관하지 못했습니다",
     "unarchive_failed": "보관 해제에 실패했습니다",
     "archived_load_failed": "보관된 알림을 불러오지 못했습니다"
+  },
+  "hierarchy": {
+    "parent_context": "상위 태스크",
+    "expand": "{{title}} 펼치기",
+    "collapse": "{{title}} 접기",
+    "child_updates_other": "하위 태스크 업데이트 {{count}}개",
+    "unread_other": "읽지 않음 {{count}}개",
+    "ancestor_path": "상위 태스크 경로"
   }
 }

@@ -463,7 +463,7 @@ export default function VoiceTab() {
         messages={visibleMessages}
         loading={messagesLoading}
         hasSessions={sessions.length > 0}
-        agentName={currentAgent?.name}
+        agent={currentAgent}
         onPickPrompt={(text) => {
           if (disabled) return;
           if (currentAgent && wsId) persistLastAgent(wsId, currentAgent.id);

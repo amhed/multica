@@ -49,10 +49,13 @@ import {
   useInboxFilterStore,
 } from "@multica/core/inbox/filter-store";
 
+import { buildInboxHierarchy, type InboxHierarchyRow } from "@multica/core/inbox/hierarchy";
+import { useInboxCollapsedKeys, useInboxViewStore } from "@multica/core/inbox/view-store";
+
 import { IssueDetail, issueHighlightMementoKey } from "../../issues/components";
 import { useViewStateWriter } from "../../platform";
 import { ErrorBoundary } from "@multica/ui/components/common/error-boundary";
-import { useNavigation, useReportNavigating } from "../../navigation";
+import { AppLink, useNavigation, useReportNavigating } from "../../navigation";
 import { toast } from "sonner";
 import {
   MoreHorizontal,
@@ -164,6 +167,17 @@ export function InboxPage() {
     () => filterInboxItems(viewItems, effectiveFilters),
     [viewItems, effectiveFilters],
   );
+  const hierarchyViewKey = `${wsId}:${view}`;
+  const collapsedKeys = useInboxCollapsedKeys(hierarchyViewKey);
+  const setCollapsed = useInboxViewStore(state => state.setCollapsed);
+  const hierarchyRows = useMemo(
+    () => buildInboxHierarchy(visibleItems, collapsedKeys, selectedKey),
+    [visibleItems, collapsedKeys, selectedKey],
+  );
+  const navigationItems = useMemo(
+    () => hierarchyRows.flatMap(row => row.item ? [row.item] : []),
+    [hierarchyRows],
+  );
   const hasActiveFilters = inboxFilterCount(effectiveFilters) > 0;
 
   const selected =
@@ -219,6 +233,16 @@ export function InboxPage() {
     setSelectedKeyState(key);
     replace(buildInboxUrl(view, key));
   }, [replace, buildInboxUrl, view]);
+
+  const handleToggleGroup = (row: InboxHierarchyRow) => {
+    // Collapsing the selected child's branch clears selection without reading
+    // its parent. A subsequent deep link reveals the selected path again.
+    if (!row.collapsed && hierarchyRows.some(candidate =>
+      candidate.item && (candidate.item.issue_id ?? candidate.item.id) === selectedKey &&
+      candidate.ancestorKeys.includes(row.key)
+    )) setSelectedKey("");
+    setCollapsed(hierarchyViewKey, row.key, !row.collapsed);
+  };
 
   // Switching views always clears the selection: the two lists are mutually
   // exclusive, so a key carried across would never resolve, and the fallback
@@ -412,8 +436,8 @@ export function InboxPage() {
     const target = idx >= 0 ? list[idx] : null;
     const wasSelected = !!target && (target.issue_id ?? target.id) === selectedKey;
     if (!wasSelected) return;
-    // List is sorted newest-first; prefer the next (older) item, fall back
-    // to the previous (newer) one when actioning at the bottom, and only
+    // Use visible hierarchy order; prefer the next notification, fall back
+    // to the previous one when actioning at the bottom, and only
     // clear the selection when nothing else is left.
     const next = list[idx + 1] ?? list[idx - 1] ?? null;
     setSelectedKey(next ? (next.issue_id ?? next.id) : "");
@@ -421,7 +445,7 @@ export function InboxPage() {
 
   // Toasts live in these shared handlers so every archive surface confirms alike.
   const handleArchive = (id: string) => {
-    advanceSelectionPast(id, visibleItems);
+    advanceSelectionPast(id, navigationItems);
     archiveMutation.mutate(id, {
       onSuccess: () => toast.success(t(($) => $.toasts.archived)),
       onError: (err) =>
@@ -434,7 +458,7 @@ export function InboxPage() {
   };
 
   const handleUnarchive = (id: string) => {
-    advanceSelectionPast(id, visibleItems);
+    advanceSelectionPast(id, navigationItems);
     unarchiveMutation.mutate(id, {
       onSuccess: () => toast.success(t(($) => $.toasts.unarchived)),
       onError: (err) =>
@@ -549,6 +573,7 @@ export function InboxPage() {
           render={
             <Button
               variant="ghost"
+              aria-label={t(($) => $.menu.actions_aria)}
               size="icon-sm"
               className="text-muted-foreground"
             />
@@ -614,7 +639,8 @@ export function InboxPage() {
       }}
     >
       <InboxList
-        items={visibleItems}
+        rows={hierarchyRows}
+        onToggleGroup={handleToggleGroup}
         view={view}
         selectedKey={selectedKey}
         archivedCount={archivedItems.length}
@@ -695,6 +721,20 @@ export function InboxPage() {
         </div>
       ) : undefined}
     >
+      {(detailItem.issue_ancestors?.length ?? 0) > 1 && (
+        <nav aria-label={t(($) => $.hierarchy.ancestor_path)} className="shrink-0 border-b px-4 py-2">
+          <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption text-muted-foreground">
+            {[...(detailItem.issue_ancestors ?? [])].reverse().map((ancestor, index) => (
+              <li key={ancestor.id} className="flex min-w-0 max-w-full items-center gap-1.5">
+                {index > 0 && <span aria-hidden="true">›</span>}
+                <AppLink href={wsPaths.issueDetail(ancestor.id)} className="min-w-0 break-words rounded-xs hover:text-foreground focus-visible:ring-1 focus-visible:ring-ring">
+                  {ancestor.title}
+                </AppLink>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
       <IssueDetail
         key={detailItem.issue_id}
         issueId={detailItem.issue_id}

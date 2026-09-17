@@ -7,7 +7,8 @@
     "mark_all_read": "全部标为已读",
     "archive_all": "归档全部",
     "archive_all_read": "归档全部已读",
-    "archive_completed": "归档已完成"
+    "archive_completed": "归档已完成",
+    "actions_aria": "收件箱操作"
   },
   "filters": {
     "tooltip": "筛选收件箱",
@@ -108,5 +109,13 @@
     "archive_completed_failed": "归档已完成失败",
     "unarchive_failed": "取消归档失败",
     "archived_load_failed": "无法加载已归档通知"
+  },
+  "hierarchy": {
+    "parent_context": "父任务",
+    "expand": "展开 {{title}}",
+    "collapse": "收起 {{title}}",
+    "child_updates_other": "{{count}} 条子任务更新",
+    "unread_other": "{{count}} 条未读",
+    "ancestor_path": "父任务路径"
   }
 }

@@ -14,23 +14,60 @@ import (
 )
 
 type InboxItemResponse struct {
-	ID            string          `json:"id"`
-	WorkspaceID   string          `json:"workspace_id"`
-	RecipientType string          `json:"recipient_type"`
-	RecipientID   string          `json:"recipient_id"`
-	Type          string          `json:"type"`
-	Severity      string          `json:"severity"`
-	IssueID       *string         `json:"issue_id"`
-	Title         string          `json:"title"`
-	Body          *string         `json:"body"`
-	Read          bool            `json:"read"`
-	Archived      bool            `json:"archived"`
-	CreatedAt     string          `json:"created_at"`
-	IssueStatus   *string         `json:"issue_status"`
-	IssuePriority *string         `json:"issue_priority"`
-	ActorType     *string         `json:"actor_type"`
-	ActorID       *string         `json:"actor_id"`
-	Details       json.RawMessage `json:"details"`
+	ID             string                       `json:"id"`
+	WorkspaceID    string                       `json:"workspace_id"`
+	RecipientType  string                       `json:"recipient_type"`
+	RecipientID    string                       `json:"recipient_id"`
+	Type           string                       `json:"type"`
+	Severity       string                       `json:"severity"`
+	IssueID        *string                      `json:"issue_id"`
+	Title          string                       `json:"title"`
+	Body           *string                      `json:"body"`
+	Read           bool                         `json:"read"`
+	Archived       bool                         `json:"archived"`
+	CreatedAt      string                       `json:"created_at"`
+	IssueStatus    *string                      `json:"issue_status"`
+	IssuePriority  *string                      `json:"issue_priority"`
+	ActorType      *string                      `json:"actor_type"`
+	ActorID        *string                      `json:"actor_id"`
+	Details        json.RawMessage              `json:"details"`
+	IssueAncestors []InboxIssueAncestorResponse `json:"issue_ancestors,omitempty"`
+}
+
+// Ordered from immediate parent to root. These are context, not notifications.
+type InboxIssueAncestorResponse struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
+func (h *Handler) enrichInboxAncestors(ctx context.Context, workspaceID pgtype.UUID, items []InboxItemResponse) error {
+	ids := make([]pgtype.UUID, 0, len(items))
+	seen := make(map[string]bool)
+	for _, item := range items {
+		if item.IssueID != nil && !seen[*item.IssueID] {
+			seen[*item.IssueID] = true
+			ids = append(ids, parseUUID(*item.IssueID))
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	rows, err := h.Queries.ListInboxIssueAncestors(ctx, db.ListInboxIssueAncestorsParams{WorkspaceID: workspaceID, IssueIds: ids})
+	if err != nil {
+		return err
+	}
+	byIssue := make(map[string][]InboxIssueAncestorResponse)
+	for _, row := range rows {
+		id := uuidToString(row.IssueID)
+		byIssue[id] = append(byIssue[id], InboxIssueAncestorResponse{ID: uuidToString(row.ID), Title: row.Title, Status: row.Status})
+	}
+	for i := range items {
+		if items[i].IssueID != nil {
+			items[i].IssueAncestors = byIssue[*items[i].IssueID]
+		}
+	}
+	return nil
 }
 
 func inboxToResponse(i db.InboxItem) InboxItemResponse {
@@ -178,6 +215,10 @@ func (h *Handler) ListInbox(w http.ResponseWriter, r *http.Request) {
 	for i, item := range items {
 		resp[i] = inboxRowToResponse(item)
 	}
+	if err := h.enrichInboxAncestors(r.Context(), wsUUID, resp); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load inbox hierarchy")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -215,6 +256,10 @@ func (h *Handler) ListArchivedInbox(w http.ResponseWriter, r *http.Request) {
 	resp := make([]InboxItemResponse, len(items))
 	for i, item := range items {
 		resp[i] = archivedInboxRowToResponse(item)
+	}
+	if err := h.enrichInboxAncestors(r.Context(), wsUUID, resp); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load inbox hierarchy")
+		return
 	}
 
 	writeJSON(w, http.StatusOK, resp)

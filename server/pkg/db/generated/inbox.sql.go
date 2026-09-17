@@ -516,6 +516,72 @@ func (q *Queries) ListArchivedInboxItems(ctx context.Context, arg ListArchivedIn
 	return items, nil
 }
 
+const listInboxIssueAncestors = `-- name: ListInboxIssueAncestors :many
+WITH RECURSIVE ancestors AS (
+    SELECT child.id AS issue_id, parent.id, parent.parent_issue_id,
+           parent.title, parent.status, 1 AS depth,
+           ARRAY[child.id, parent.id] AS visited
+    FROM issue child
+    JOIN issue parent ON parent.id = child.parent_issue_id
+        AND parent.workspace_id = child.workspace_id
+    WHERE child.workspace_id = $1
+      AND child.id = ANY($2::uuid[])
+      AND parent.id <> child.id
+    UNION ALL
+    SELECT ancestors.issue_id, parent.id, parent.parent_issue_id,
+           parent.title, parent.status, ancestors.depth + 1,
+           ancestors.visited || parent.id
+    FROM ancestors
+    JOIN issue parent ON parent.id = ancestors.parent_issue_id
+        AND parent.workspace_id = $1
+    WHERE NOT parent.id = ANY(ancestors.visited)
+)
+SELECT issue_id, id, title, status, depth
+FROM ancestors
+ORDER BY issue_id, depth
+`
+
+type ListInboxIssueAncestorsParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	IssueIds    []pgtype.UUID `json:"issue_ids"`
+}
+
+type ListInboxIssueAncestorsRow struct {
+	IssueID pgtype.UUID `json:"issue_id"`
+	ID      pgtype.UUID `json:"id"`
+	Title   string      `json:"title"`
+	Status  string      `json:"status"`
+	Depth   int32       `json:"depth"`
+}
+
+// One batch for the issues actually present in this recipient's inbox.
+// Every hop is workspace-scoped; a broken/cross-workspace link ends the path.
+func (q *Queries) ListInboxIssueAncestors(ctx context.Context, arg ListInboxIssueAncestorsParams) ([]ListInboxIssueAncestorsRow, error) {
+	rows, err := q.db.Query(ctx, listInboxIssueAncestors, arg.WorkspaceID, arg.IssueIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInboxIssueAncestorsRow{}
+	for rows.Next() {
+		var i ListInboxIssueAncestorsRow
+		if err := rows.Scan(
+			&i.IssueID,
+			&i.ID,
+			&i.Title,
+			&i.Status,
+			&i.Depth,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listInboxItems = `-- name: ListInboxItems :many
 SELECT i.id, i.workspace_id, i.recipient_type, i.recipient_id, i.type, i.severity, i.issue_id, i.title, i.body, i.read, i.archived, i.created_at, i.actor_type, i.actor_id, i.details,
        iss.status AS issue_status,

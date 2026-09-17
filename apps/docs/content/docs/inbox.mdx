@@ -43,6 +43,31 @@ The inbox is only for workspace members. Even when an agent is the assignee or a
 
 @-mentioning an agent in a comment, assigning an issue to it, or triggering an autopilot creates a run directly instead of leaving the agent a notification. `@all` notifies members only.
 
+## Related issues stay together
+
+On web and desktop, child notifications appear under their parent issue in both
+the inbox and Archived. Groups start expanded and are ordered by their newest
+matching notification, with parents before children. Collapse a group to hide
+its descendants while keeping its child-update count visible; the active inbox
+also shows the group's unread count.
+
+A parent without a matching notification appears as **Parent context**. Opening
+it opens the issue; it does not add an unread notification or mark children read.
+Filters apply to notifications, with parents retained for context. Only children
+with matching inbox notifications appear, not every sub-issue in the project.
+Archiving or reading an issue affects its own notifications, not its descendants.
+
+Up and Down arrows move through visible notifications in list order, skipping
+context-only parents and collapsed descendants. Archiving or restoring the
+selected notification selects the next visible notification, or the previous
+one at the end of the list. Collapsing a group containing the selection clears
+that selection without marking its parent read.
+
+Opening an inbox link to a child expands its ancestor groups when that child
+matches the current view and filters. For notifications with more than one
+ancestor, the detail pane shows links to the full parent issue path. Comment
+previews display plain text with readable mention labels.
+
 ## Handle notifications
 
 Selecting a notification marks it as read. Archive it when you're done; archiving doesn't modify or delete the corresponding issue. Once an issue reaches a status in the `in_review`, `done`, or `cancelled` category, its run-failure notifications archive automatically.

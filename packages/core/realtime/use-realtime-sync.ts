@@ -44,7 +44,7 @@ import {
   invalidateLastActivitySortedIssueLists,
   invalidateUpdatedAtSortedIssueLists,
 } from "../issues/cache-coordinator";
-import { onInboxNew, onInboxInvalidate, onInboxIssueStatusChanged, onInboxIssueDeleted, onInboxSummaryInvalidate } from "../inbox/ws-updaters";
+import { onInboxNew, onInboxInvalidate, onInboxIssueUpdated, onInboxIssueDeleted, onInboxSummaryInvalidate } from "../inbox/ws-updaters";
 import {
   notificationPreferenceOptions,
   notificationPreferenceKeys,
@@ -1008,7 +1008,7 @@ export function useRealtimeSync(
           projectChanged: payload.project_changed,
         });
         if (issue.status) {
-          onInboxIssueStatusChanged(qc, wsId, issue.id, issue.status);
+          void onInboxIssueUpdated(qc, wsId, issue);
         }
       }
     });
