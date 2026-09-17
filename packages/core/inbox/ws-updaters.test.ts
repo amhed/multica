@@ -421,6 +421,102 @@ describe("inbox ancestor realtime updates", () => {
     expect(qc.getQueryData<InboxItem[]>(inboxKeys.list(wsId))?.[0]?.issue_ancestors?.[0]?.status).toBe("done");
     expect(invalidate).not.toHaveBeenCalled();
   });
+  it.each(["child", "parent"])(
+    "keeps the latest ancestry when %s moves P to Q to P during a background refresh",
+    async (issueId) => {
+      const qc = new QueryClient({
+        defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+      });
+      const rows = (parentId: string, archived: boolean) => [
+        makeItem("child-notice", "child", {
+          archived,
+          issue_status: "todo",
+          issue_ancestors: [
+            ...(issueId === "parent"
+              ? [{ id: "parent", title: "Parent", status: "todo" }]
+              : []),
+            { id: parentId, title: parentId, status: "todo" },
+          ],
+        }),
+      ];
+      const lists = [inboxKeys.list(wsId), inboxKeys.archived(wsId)].map((queryKey, index) => {
+        const loaded = rows("P", index === 1);
+        const stale = rows("Q", index === 1);
+        let releaseBackground!: (items: InboxItem[]) => void;
+        let releaseReparent!: (items: InboxItem[]) => void;
+        const backgroundResponse = new Promise<InboxItem[]>(resolve => { releaseBackground = resolve; });
+        const reparentResponse = new Promise<InboxItem[]>(resolve => { releaseReparent = resolve; });
+        const queryFn = vi.fn<() => Promise<InboxItem[]>>()
+          .mockImplementationOnce(() => backgroundResponse)
+          .mockImplementationOnce(() => reparentResponse)
+          .mockResolvedValue(loaded);
+        qc.setQueryData(queryKey, loaded);
+        const observer = new QueryObserver(qc, { queryKey, queryFn });
+        const unsubscribe = observer.subscribe(() => {});
+        return { queryKey, queryFn, observer, unsubscribe, loaded, stale, releaseBackground, releaseReparent };
+      });
+      const unrelated = [
+        inboxKeys.list("ws-2"),
+        inboxKeys.archived("ws-2"),
+        inboxKeys.unreadSummary(),
+      ].map(queryKey => {
+        qc.setQueryData(queryKey, []);
+        const queryFn = vi.fn(async () => []);
+        const observer = new QueryObserver(qc, { queryKey, queryFn });
+        const unsubscribe = observer.subscribe(() => {});
+        return { queryKey, queryFn, unsubscribe };
+      });
+      const update = (parentId: string) => onInboxIssueUpdated(qc, wsId, {
+        id: issueId,
+        title: issueId === "parent" ? "Parent" : "Child",
+        status: "todo",
+        parent_issue_id: parentId,
+      });
+
+      try {
+        const backgrounds = lists.map(list => list.observer.refetch());
+        for (const list of lists) {
+          expect(list.queryFn).toHaveBeenCalledTimes(1);
+          expect(qc.getQueryData(list.queryKey)).toEqual(list.loaded);
+        }
+
+        const movedToQ = update("Q");
+        await vi.waitFor(() => {
+          for (const list of lists) expect(list.queryFn).toHaveBeenCalledTimes(2);
+        });
+        await update("P");
+
+        for (const list of lists) {
+          list.releaseReparent(list.stale);
+          list.releaseBackground(list.stale);
+        }
+        await Promise.all([...backgrounds, movedToQ]);
+
+        for (const list of lists) {
+          expect(qc.getQueryData(list.queryKey)).toEqual(list.loaded);
+          expect(qc.getQueryState(list.queryKey)).toMatchObject({
+            fetchStatus: "idle",
+            isInvalidated: false,
+          });
+          expect(list.queryFn).toHaveBeenCalledTimes(3);
+        }
+        await update("P");
+        for (const list of lists) expect(list.queryFn).toHaveBeenCalledTimes(3);
+        for (const query of unrelated) {
+          expect(query.queryFn).not.toHaveBeenCalled();
+          expect(qc.getQueryState(query.queryKey)?.isInvalidated).toBe(false);
+        }
+      } finally {
+        for (const list of lists) {
+          list.releaseBackground([]);
+          list.releaseReparent([]);
+          list.unsubscribe();
+        }
+        for (const query of unrelated) query.unsubscribe();
+        qc.clear();
+      }
+    },
+  );
   it("removes a deleted context ancestor while retaining the child", async () => {
     const qc = new QueryClient();
     qc.setQueryData(inboxKeys.list(wsId), [makeItem("child-notice", "child", { issue_ancestors: ancestors })]);

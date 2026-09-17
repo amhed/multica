@@ -125,12 +125,7 @@ export async function onInboxIssueUpdated(
   wsId: string,
   issue: Pick<Issue, "id" | "status" | "title" | "parent_issue_id">,
 ) {
-  // On a first load there is no ancestry to compare yet. Cancel that older
-  // response so a concurrent reparent cannot leave its path cached forever.
-  let hierarchyChanged = [inboxKeys.list(wsId), inboxKeys.archived(wsId)].some(key => {
-    const state = qc.getQueryState(key);
-    return state?.data === undefined && state?.fetchStatus === "fetching";
-  });
+  let hierarchyChanged = isInboxListRequestInFlight(qc, wsId);
   patchInboxIssueStatus(qc, wsId, issue.id, issue.status);
   patchInboxLists(qc, wsId, items => {
     let changed = false;
