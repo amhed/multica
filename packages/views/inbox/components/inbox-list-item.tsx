@@ -43,12 +43,14 @@ export function InboxListItem({
   item,
   view,
   isSelected,
+  nested = false,
   onClick,
   onAction,
 }: {
   item: InboxItem;
   view: InboxView;
   isSelected: boolean;
+  nested?: boolean;
   onClick: () => void;
   // Archive in the main list, unarchive in the archived one — the row action is
   // always the reversal of the current view, so the two lists share this row.
@@ -134,7 +136,7 @@ export function InboxListItem({
       <ActorAvatar
         actorType={actorType}
         actorId={item.actor_id ?? item.recipient_id}
-        size="lg"
+        size={nested ? "sm" : "lg"}
         enableHoverCard
       />
       <div className="min-w-0 flex-1">

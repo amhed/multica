@@ -9,6 +9,7 @@ Product contracts the runtime brief does not fully encode.
 - [Claim ownership without duplicating a run](#claim-ownership-without-duplicating-a-run)
 - [Who else is running right now](#who-else-is-running-right-now)
 - [Sub-issues: todo starts work now, backlog parks it](#sub-issues-todo-starts-work-now-backlog-parks-it)
+- [Inbox hierarchy](#inbox-hierarchy)
 - [Incorrect to correct](#incorrect-to-correct)
 
 ## PR linking and close intent are two distinct contracts
@@ -403,3 +404,18 @@ multica issue create --title "Step 1" --parent <issue-id> --assignee <agent> --s
 multica issue create --title "Step 2" --parent <issue-id> --assignee <agent> --stage 2 --status backlog
 multica issue create --title "Step 3" --parent <issue-id> --assignee <agent> --stage 3 --status backlog
 ```
+
+
+## Inbox hierarchy
+
+Web and desktop group child notifications under their real parent issues, ordered
+by the newest matching notification in each branch. Active and archived inbox
+list responses can include `issue_ancestors`, an array of `{id, title, status}`
+ordered from immediate parent to root. Ancestors are workspace-scoped context,
+not additional notifications. Clients must tolerate this optional field being
+absent and keep rendering flat rows on older servers.
+
+A parent without a matching notification appears as context only. Reading or
+archiving a parent does not read or archive its children. Filters match the
+notifications first and retain only the ancestors needed to explain those
+matches. Agents still receive runs rather than consuming the member inbox.

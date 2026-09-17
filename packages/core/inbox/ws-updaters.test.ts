@@ -7,6 +7,7 @@ import {
   onInboxIssueDeleted,
   onInboxNew,
   onInboxIssueStatusChanged,
+  onInboxIssueUpdated,
   onInboxSummaryInvalidate,
   patchInboxIssueProjection,
 } from "./ws-updaters";
@@ -392,4 +393,49 @@ describe("inbox list refresh during the first load", () => {
       qc.clear();
     }
   });
+});
+
+
+describe("inbox ancestor realtime updates", () => {
+  const ancestors = [
+    { id: "parent", title: "Parent", status: "in_progress" },
+    { id: "root", title: "Root", status: "todo" },
+  ];
+  it("refreshes both lists when an ancestor is reparented", async () => {
+    const qc = new QueryClient();
+    for (const key of [inboxKeys.list(wsId), inboxKeys.archived(wsId)]) {
+      qc.setQueryData(key, [makeItem("child-notice", "child", { issue_ancestors: ancestors })]);
+    }
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    await onInboxIssueUpdated(qc, wsId, { id: "parent", title: "Renamed", status: "done", parent_issue_id: "new-root" });
+    for (const key of [inboxKeys.list(wsId), inboxKeys.archived(wsId)]) {
+      expect(qc.getQueryData<InboxItem[]>(key)?.[0]?.issue_ancestors?.[0]).toMatchObject({ title: "Renamed", status: "done" });
+    }
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: inboxKeys.all(wsId) });
+  });
+  it("patches context-only parent status without fetching an unchanged hierarchy", async () => {
+    const qc = new QueryClient();
+    qc.setQueryData(inboxKeys.list(wsId), [makeItem("child-notice", "child", { issue_ancestors: ancestors })]);
+    const invalidate = vi.spyOn(qc, "invalidateQueries");
+    await onInboxIssueUpdated(qc, wsId, { id: "parent", title: "Parent", status: "done", parent_issue_id: "root" });
+    expect(qc.getQueryData<InboxItem[]>(inboxKeys.list(wsId))?.[0]?.issue_ancestors?.[0]?.status).toBe("done");
+    expect(invalidate).not.toHaveBeenCalled();
+  });
+  it("removes a deleted context ancestor while retaining the child", async () => {
+    const qc = new QueryClient();
+    qc.setQueryData(inboxKeys.list(wsId), [makeItem("child-notice", "child", { issue_ancestors: ancestors })]);
+    await onInboxIssueDeleted(qc, wsId, "parent");
+    expect(qc.getQueryData<InboxItem[]>(inboxKeys.list(wsId))?.[0]).toMatchObject({ issue_id: "child", issue_ancestors: [] });
+  });
+});
+
+it("invalidates the first inbox load when an issue update arrives before ancestry is known", async () => {
+  const qc = new QueryClient();
+  const key = inboxKeys.list(wsId);
+  const request = qc.fetchQuery({ queryKey: key, queryFn: () => new Promise<InboxItem[]>(() => {}) }).catch(() => undefined);
+  await onInboxIssueUpdated(qc, wsId, { id: "parent", title: "Parent", status: "todo", parent_issue_id: "new-root" });
+  await request;
+  expect(qc.getQueryState(key)?.isInvalidated).toBe(true);
+  expect(qc.getQueryState(key)?.fetchStatus).toBe("idle");
+  qc.clear();
 });

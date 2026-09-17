@@ -9,9 +9,11 @@ import {
   type ReactNode,
 } from "react";
 import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
-import { Archive, ChevronRight, Inbox } from "lucide-react";
+import { Archive, ChevronRight, ChevronDown, Inbox } from "lucide-react";
 import { isEditableShortcutTarget } from "@multica/core/shortcuts";
 import { isImeComposing } from "@multica/core/utils";
+import type { InboxHierarchyRow } from "@multica/core/inbox/hierarchy";
+import { InboxParentContext } from "./inbox-parent-context";
 import type { InboxItem } from "@multica/core/types";
 import type { InboxView } from "./inbox-view";
 import { InboxListItem } from "./inbox-list-item";
@@ -47,7 +49,8 @@ const INBOX_ROW_ESTIMATED_HEIGHT = 58;
  * walks the data rather than the DOM.
  */
 export function InboxList({
-  items,
+  rows,
+  onToggleGroup,
   view,
   selectedKey,
   archivedCount,
@@ -57,7 +60,8 @@ export function InboxList({
   emptyLabel,
   emptyAction,
 }: {
-  items: InboxItem[];
+  rows: InboxHierarchyRow[];
+  onToggleGroup: (row: InboxHierarchyRow) => void;
   view: InboxView;
   selectedKey: string;
   // Deduplicated archived-issue count. Only read in the main view, to label the
@@ -89,6 +93,7 @@ export function InboxList({
   );
   const virtuosoRef = useRef<VirtuosoHandle>(null);
   const isArchivedView = view === "archived";
+  const selectableRows = rows.flatMap((row, index) => row.item ? [{ item: row.item, index }] : []);
 
   // Keyboard focus for the list lives on the scroll container, not on a row:
   // virtualization unmounts the row the user clicked as soon as it scrolls
@@ -128,8 +133,8 @@ export function InboxList({
     event.preventDefault();
     focusList();
 
-    const current = items.findIndex(
-      (item) => (item.issue_id ?? item.id) === selectedKey,
+    const current = selectableRows.findIndex(
+      ({ item }) => (item.issue_id ?? item.id) === selectedKey,
     );
     const step = event.key === "ArrowDown" ? 1 : -1;
     // Nothing selected yet: Down enters the list at the top, Up at the bottom.
@@ -137,17 +142,18 @@ export function InboxList({
       current < 0
         ? step === 1
           ? 0
-          : items.length - 1
-        : Math.min(Math.max(current + step, 0), items.length - 1);
+          : selectableRows.length - 1
+        : Math.min(Math.max(current + step, 0), selectableRows.length - 1);
     if (nextIndex === current) return;
-    const nextItem = items[nextIndex];
+    const next = selectableRows[nextIndex];
+    const nextItem = next?.item;
     if (!nextItem) return;
 
     // Virtuoso's own scrollIntoView, never the DOM element's: the target row
     // may not be mounted, and the native call scrolls ancestors too. It is a
     // no-op while the row is already fully visible, so a selection moving
     // inside the viewport does not scroll the list.
-    virtuosoRef.current?.scrollIntoView({ index: nextIndex });
+    virtuosoRef.current?.scrollIntoView({ index: next!.index });
     onSelect(nextItem);
   };
 
@@ -181,7 +187,7 @@ export function InboxList({
 
   const Footer = useCallback(() => archivedEntry, [archivedEntry]);
 
-  if (items.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -201,16 +207,50 @@ export function InboxList({
     );
   }
 
-  const computeItemKey = (_index: number, item: InboxItem) => item.id;
-  const itemContent = (_index: number, item: InboxItem) => (
-    <InboxListItem
-      item={item}
-      view={view}
-      isSelected={(item.issue_id ?? item.id) === selectedKey}
-      onClick={() => selectItem(item)}
-      onAction={() => onAction(item.id)}
-    />
-  );
+  const computeItemKey = (_index: number, row: InboxHierarchyRow) => row.key;
+  const itemContent = (_index: number, row: InboxHierarchyRow) => {
+    const hasChildren = row.childCount > 0;
+    return (
+      <div
+        className={row.depth > 0 ? "border-l border-surface-border pl-1" : undefined}
+        style={{ marginLeft: Math.min(row.depth, 2) * 12 }}
+      >
+        <div className="flex min-w-0 items-center">
+          {hasChildren ? (
+            <button
+              type="button"
+              aria-expanded={!row.collapsed}
+              aria-label={t(($) => row.collapsed ? $.hierarchy.expand : $.hierarchy.collapse, { title: row.issue?.title ?? row.item?.title })}
+              onClick={() => onToggleGroup(row)}
+              className="flex w-5 shrink-0 items-center justify-center self-stretch rounded-xs text-muted-foreground hover:bg-accent focus-visible:ring-1 focus-visible:ring-ring outline-none"
+            >
+              {row.collapsed ? <ChevronRight aria-hidden="true" className="size-3.5" /> : <ChevronDown aria-hidden="true" className="size-3.5" />}
+            </button>
+          ) : <span className="w-5 shrink-0" />}
+          <div className="min-w-0 flex-1">
+            {row.item ? (
+              <InboxListItem
+                item={row.item}
+                view={view}
+                nested={row.depth > 0}
+                isSelected={(row.item.issue_id ?? row.item.id) === selectedKey}
+                onClick={() => selectItem(row.item!)}
+                onAction={() => onAction(row.item!.id)}
+              />
+            ) : row.issue ? <InboxParentContext issue={row.issue} workspaceId={row.workspaceId} /> : null}
+          </div>
+        </div>
+        {hasChildren && (
+          <p className="pb-1 pl-7 text-micro text-muted-foreground">
+            {t(($) => $.hierarchy.child_updates, { count: row.childCount })}
+            {!isArchivedView && row.unreadCount > 0 && (
+              <> · {t(($) => $.hierarchy.unread, { count: row.unreadCount })}</>
+            )}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   // While the callback ref hasn't handed the scroll element over yet (the first
   // render after a remount), seed a bounded slice of real rows so the list
@@ -231,10 +271,10 @@ export function InboxList({
           <Virtuoso
             ref={virtuosoRef}
             customScrollParent={scrollEl}
-            data={items}
+            data={rows}
             computeItemKey={computeItemKey}
             initialScrollTop={restoredScrollTop}
-            initialItemCount={Math.min(items.length, VIRTUOSO_SEED_COUNT)}
+            initialItemCount={Math.min(rows.length, VIRTUOSO_SEED_COUNT)}
             defaultItemHeight={INBOX_ROW_ESTIMATED_HEIGHT}
             increaseViewportBy={{ top: 400, bottom: 400 }}
             itemContent={itemContent}
@@ -243,7 +283,7 @@ export function InboxList({
         ) : (
           <>
             <VirtuosoSeed
-              data={items}
+              data={rows}
               itemContent={itemContent}
               computeItemKey={computeItemKey}
               estimatedItemHeight={INBOX_ROW_ESTIMATED_HEIGHT}
@@ -251,7 +291,7 @@ export function InboxList({
             {/* The seed frame renders a bounded slice, so the entry would be
                 mid-list rather than after the last row — only show it once the
                 seed IS the whole list. */}
-            {items.length <= VIRTUOSO_SEED_COUNT && archivedEntry}
+            {rows.length <= VIRTUOSO_SEED_COUNT && archivedEntry}
           </>
         )}
       </div>

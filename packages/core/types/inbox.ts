@@ -41,6 +41,12 @@ export interface InboxWorkspaceUnread {
   count: number;
 }
 
+export interface InboxIssueAncestor {
+  id: string;
+  title: string;
+  status: IssueStatus;
+}
+
 export interface InboxItem {
   id: string;
   workspace_id: string;
@@ -60,6 +66,8 @@ export interface InboxItem {
    * projection; null also covers notifications without a linked issue.
    */
   issue_priority?: IssuePriority | null;
+  /** Immediate parent first; optional for older backends and root issues. */
+  issue_ancestors?: InboxIssueAncestor[];
   read: boolean;
   archived: boolean;
   created_at: string;

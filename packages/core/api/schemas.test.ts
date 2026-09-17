@@ -1333,6 +1333,16 @@ describe("InboxItemListSchema", () => {
     ...overrides,
   });
 
+  it("accepts ancestor context and drops malformed optional hierarchy without losing notifications", () => {
+    const ancestors = [{ id: "parent", title: "Parent", status: "custom-status" }];
+    expect(InboxItemListSchema.parse([row({ issue_ancestors: ancestors })])[0]?.issue_ancestors).toEqual(ancestors);
+    for (const value of [null, "bad", [{ id: "parent", title: 123 }]]) {
+      const parsed = InboxItemListSchema.parse([row({ issue_ancestors: value })]);
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0]?.issue_ancestors).toBeUndefined();
+    }
+  });
+
   it("parses a well-formed archived list and tolerates extra fields", () => {
     const parsed = parseWithFallback(
       [row({

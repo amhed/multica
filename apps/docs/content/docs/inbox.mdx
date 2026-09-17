@@ -43,6 +43,19 @@ The inbox is only for workspace members. Even when an agent is the assignee or a
 
 @-mentioning an agent in a comment, assigning an issue to it, or triggering an autopilot creates a run directly instead of leaving the agent a notification. `@all` notifies members only.
 
+## Related issues stay together
+
+On web and desktop, child notifications appear under their parent issue. Groups
+start expanded and move up when any matching notification in the group is newer.
+Collapse a group to keep its child-update and unread counts visible while hiding
+its descendants.
+
+A parent without a matching notification appears as **Parent context**. Opening
+it opens the issue; it does not add an unread notification or mark children read.
+Filters apply to notifications, with parents retained for context. Only children
+with matching inbox notifications appear, not every sub-issue in the project.
+Archiving or reading an issue affects its own notifications, not its descendants.
+
 ## Handle notifications
 
 Selecting a notification marks it as read. Archive it when you're done; archiving doesn't modify or delete the corresponding issue. Once an issue reaches a status in the `in_review`, `done`, or `cancelled` category, its run-failure notifications archive automatically.

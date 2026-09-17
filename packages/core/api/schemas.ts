@@ -2604,6 +2604,12 @@ export const InboxItemListSchema = z.array(
       body: z.string().nullish(),
       issue_status: z.string().nullish(),
       issue_priority: z.string().nullish(),
+      // Invalid hierarchy metadata must not discard otherwise usable inbox rows.
+      issue_ancestors: z.array(z.object({
+        id: z.string().min(1),
+        title: z.string(),
+        status: z.string(),
+      })).optional().catch(undefined),
       read: z.boolean(),
       archived: z.boolean(),
       created_at: z.string(),

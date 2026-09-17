@@ -1,9 +1,11 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { ApiError } from "@multica/core/api";
 import type { InboxItem } from "@multica/core/types";
 import { useInboxFilterStore } from "@multica/core/inbox/filter-store";
+import { useInboxViewStore } from "@multica/core/inbox/view-store";
+import type { InboxHierarchyRow } from "@multica/core/inbox/hierarchy";
 import { InboxPage } from "./inbox-page";
 
 vi.mock("sonner", () => ({
@@ -115,6 +117,7 @@ const replace = vi.fn();
 let searchParams = new URLSearchParams();
 
 vi.mock("../../navigation", () => ({
+  AppLink: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
   useNavigation: () => ({ searchParams, replace }),
   // Real hook: reports the detail-pane swap to the shell's progress bar.
   // Nothing here renders that bar, and the page reads nothing back from it.
@@ -165,26 +168,26 @@ vi.mock("@multica/ui/components/ui/resizable", () => ({
 }));
 vi.mock("./inbox-list", () => ({
   InboxList: ({
-    items,
+    rows,
     view,
     onSelect,
     emptyLabel,
     emptyAction,
   }: {
-    items: InboxItem[];
+    rows: InboxHierarchyRow[];
     view: string;
     onSelect: (item: InboxItem) => void;
     emptyLabel?: string;
     emptyAction?: React.ReactNode;
   }) => (
     <div data-testid="list" data-view={view}>
-      {items.map((i) => (
+      {rows.flatMap(r => r.item ? [r.item] : []).map((i) => (
         <button key={i.id} data-testid="row" onClick={() => onSelect(i)}>
           {i.id}
         </button>
       ))}
-      {items.length === 0 && emptyLabel && <p>{emptyLabel}</p>}
-      {items.length === 0 && emptyAction}
+      {rows.length === 0 && emptyLabel && <p>{emptyLabel}</p>}
+      {rows.length === 0 && emptyAction}
     </div>
   ),
 }));
@@ -254,6 +257,7 @@ function item(overrides: Partial<InboxItem> = {}): InboxItem {
 }
 
 function reset() {
+  useInboxViewStore.setState({ collapsedByView: {} });
   listData.active = [];
   listData.archived = [];
   searchParams = new URLSearchParams();
@@ -381,7 +385,7 @@ describe("InboxPage", () => {
     render(<InboxPage />);
 
     expect(screen.queryByTestId("row")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Inbox" }));
+    fireEvent.click(within(screen.getByTestId("list")).getByRole("button", { name: "Inbox" }));
     expect(screen.getByTestId("row")).toHaveTextContent("todo-high");
   });
 
@@ -884,4 +888,42 @@ describe("InboxPage", () => {
     expect(replace).toHaveBeenCalledWith("/acme/issues/issue-404");
     expect(replace).not.toHaveBeenCalledWith("/acme/inbox");
   });
+});
+
+
+it("archives in visible hierarchy order, selecting the child after its parent", () => {
+  reset();
+  layout.width = DESKTOP;
+  listData.active = [
+    item({ id: "unrelated", issue_id: "other", created_at: "2026-06-15T09:00:00Z" }),
+    item({ id: "child", issue_id: "child-issue", created_at: "2026-06-15T10:00:00Z",
+      issue_ancestors: [{ id: "parent-issue", title: "Parent", status: "todo" }] }),
+    item({ id: "parent", issue_id: "parent-issue", created_at: "2026-06-15T08:00:00Z" }),
+  ];
+  searchParams = new URLSearchParams("issue=parent-issue");
+  render(<InboxPage />);
+  expect(screen.getAllByTestId("row").map(el => el.textContent)).toEqual(["parent", "child", "unrelated"]);
+  act(() => rowActions!.onAction("parent"));
+  expect(archiveMutate).toHaveBeenCalledWith("parent", expect.any(Object));
+  expect(replace).toHaveBeenLastCalledWith("/acme/inbox?issue=child-issue");
+});
+
+
+it("reveals a deep-linked child and shows its full ancestor path", () => {
+  reset();
+  layout.width = DESKTOP;
+  listData.active = [item({ id: "deep-child", issue_id: "child-issue", read: false,
+    issue_ancestors: [
+      { id: "parent", title: "Immediate parent", status: "todo" },
+      { id: "root", title: "Top-level effort", status: "in_progress" },
+    ],
+  })];
+  useInboxViewStore.getState().setCollapsed("workspace-1:inbox", "workspace-1:issue:root", true);
+  searchParams = new URLSearchParams("issue=child-issue");
+  render(<InboxPage />);
+  expect(screen.getByTestId("row")).toHaveTextContent("deep-child");
+  expect(screen.getByRole("link", { name: "Top-level effort" })).toHaveAttribute("href", "/acme/issues/root");
+  expect(screen.getByRole("link", { name: "Immediate parent" })).toHaveAttribute("href", "/acme/issues/parent");
+  expect(markReadMutate).toHaveBeenCalledWith("deep-child", expect.any(Object));
+  expect(markReadMutate.mock.calls.every(([id]) => id === "deep-child")).toBe(true);
 });

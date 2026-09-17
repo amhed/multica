@@ -363,3 +363,69 @@ func truncateForLog(s string) string {
 	}
 	return s
 }
+
+func TestInboxAncestorsIncludeContextForActiveAndArchivedChildren(t *testing.T) {
+	workspaceID := dbfx.Workspace(t, "Inbox hierarchy", "inbox-tree-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	rootID := dbfx.Issue(t, "Root", testutil.Cols{"workspace_id": workspaceID})
+	parentID := dbfx.Issue(t, "Parent", testutil.Cols{"workspace_id": workspaceID, "parent_issue_id": rootID, "status": "in_progress"})
+	for _, archived := range []bool{false, true} {
+		t.Run(fmt.Sprintf("archived=%t", archived), func(t *testing.T) {
+			childID := dbfx.Issue(t, "Child", testutil.Cols{"workspace_id": workspaceID, "parent_issue_id": parentID})
+			dbfx.Insert(t, "inbox_item", testutil.Cols{
+				"workspace_id": workspaceID, "recipient_type": "member", "recipient_id": testUserID,
+				"type": "mentioned", "severity": "info", "issue_id": childID, "title": "Child", "archived": archived,
+			})
+			handler := testHandler.ListInbox
+			if archived {
+				handler = testHandler.ListArchivedInbox
+			}
+			var items []InboxItemResponse
+			testutil.Call(t, inboxWorkspaceHandler(handler), inboxRequest(http.MethodGet, "/api/inbox", workspaceID)).Want(http.StatusOK).JSON(&items)
+			if len(items) != 1 {
+				t.Fatalf("got %d notifications; context must not add notifications", len(items))
+			}
+			ancestors := items[0].IssueAncestors
+			if len(ancestors) != 2 || ancestors[0].ID != parentID || ancestors[1].ID != rootID {
+				t.Fatalf("want immediate parent then root, got %+v", ancestors)
+			}
+			if ancestors[0].Title != "Parent" || ancestors[0].Status != "in_progress" {
+				t.Errorf("parent context = %+v", ancestors[0])
+			}
+		})
+	}
+}
+
+func TestInboxAncestorsStopAtCrossWorkspaceLinksAndCycles(t *testing.T) {
+	workspaceID := dbfx.Workspace(t, "Inbox ancestor boundaries", "inbox-boundary-"+uuid.NewString())
+	dbfx.Member(t, workspaceID, testUserID, "owner")
+	otherWS := dbfx.Workspace(t, "Inaccessible", "inbox-private-"+uuid.NewString())
+	foreignID := dbfx.Issue(t, "Secret title", testutil.Cols{"workspace_id": otherWS})
+	parentID := dbfx.Issue(t, "Visible parent", testutil.Cols{"workspace_id": workspaceID, "parent_issue_id": foreignID})
+	childID := dbfx.Issue(t, "Child", testutil.Cols{"workspace_id": workspaceID, "parent_issue_id": parentID})
+	dbfx.Insert(t, "inbox_item", testutil.Cols{
+		"workspace_id": workspaceID, "recipient_type": "member", "recipient_id": testUserID,
+		"type": "mentioned", "severity": "info", "issue_id": childID, "title": "Child",
+	})
+	var items []InboxItemResponse
+	list := func() {
+		testutil.Call(t, inboxWorkspaceHandler(testHandler.ListInbox), inboxRequest(http.MethodGet, "/api/inbox", workspaceID)).Want(http.StatusOK).JSON(&items)
+	}
+	list()
+	if len(items) != 1 || len(items[0].IssueAncestors) != 1 || items[0].IssueAncestors[0].ID != parentID {
+		t.Fatalf("foreign ancestor leaked or visible parent missing: %+v", items)
+	}
+	// Even corrupt stored cycles must terminate without repeating the notified issue.
+	dbfx.Exec(t, "UPDATE issue SET parent_issue_id = $1 WHERE id = $2", childID, parentID)
+	list()
+	if len(items[0].IssueAncestors) != 1 {
+		t.Fatalf("cycle repeated ancestors: %+v", items[0].IssueAncestors)
+	}
+	// A stale parent reference must leave the child notification visible.
+	dbfx.Exec(t, "UPDATE issue SET parent_issue_id = NULL WHERE id = $1", parentID)
+	dbfx.Exec(t, "DELETE FROM issue WHERE id = $1", parentID)
+	list()
+	if len(items) != 1 || len(items[0].IssueAncestors) != 0 {
+		t.Fatalf("missing parent hid child: %+v", items)
+	}
+}

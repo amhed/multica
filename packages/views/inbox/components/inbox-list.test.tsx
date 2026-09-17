@@ -1,7 +1,8 @@
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { InboxItem } from "@multica/core/types";
+import { buildInboxHierarchy, type InboxHierarchyRow } from "@multica/core/inbox/hierarchy";
 import { InboxList } from "./inbox-list";
 
 // jsdom has no layout, so the real Virtuoso measures a 0-height viewport and
@@ -15,8 +16,8 @@ vi.mock("react-virtuoso", () => ({
       data,
       itemContent,
     }: {
-      data: InboxItem[];
-      itemContent: (index: number, item: InboxItem) => React.ReactNode;
+      data: InboxHierarchyRow[];
+      itemContent: (index: number, item: InboxHierarchyRow) => React.ReactNode;
     },
     ref: React.Ref<unknown>,
   ) {
@@ -24,7 +25,7 @@ vi.mock("react-virtuoso", () => ({
     return (
       <div>
         {data.map((item, index) => (
-          <div key={item.id}>{itemContent(index, item)}</div>
+          <div key={item.key}>{itemContent(index, item)}</div>
         ))}
       </div>
     );
@@ -48,6 +49,8 @@ vi.mock("./inbox-list-item", () => ({
     </button>
   ),
 }));
+
+vi.mock("./inbox-parent-context", () => ({ InboxParentContext: ({ issue }: { issue: { title: string } }) => <a href="#parent">{issue.title}</a> }));
 
 vi.mock("../../i18n", () => ({ useT: () => ({ t: () => "Inbox" }) }));
 
@@ -78,7 +81,8 @@ const items = [item("a"), item("b"), item("c")];
 function renderList(selectedKey: string, onSelect = vi.fn()) {
   const utils = render(
     <InboxList
-      items={items}
+      rows={buildInboxHierarchy(items)}
+      onToggleGroup={vi.fn()}
       view="inbox"
       selectedKey={selectedKey}
       archivedCount={0}
@@ -191,4 +195,36 @@ describe("InboxList keyboard navigation", () => {
     expect(onSelect).toHaveBeenCalledWith(items[1]);
     expect(document.activeElement).toBe(scroller);
   });
+});
+
+
+// The hierarchy edge-case matrix lives in core/inbox/hierarchy.test.ts.
+// Here we exercise disclosure and virtualized keyboard navigation together.
+it("collapses with a real disclosure button and skips context during arrow navigation", () => {
+  const child = item("child", { issue_ancestors: [{ id: "parent", title: "Parent context", status: "todo" }] });
+  const other = item("other", { created_at: "2026-06-14T08:00:00Z" });
+  const onSelect = vi.fn();
+  function Harness() {
+    const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+    return <InboxList rows={buildInboxHierarchy([child, other], collapsed)} view="inbox" selectedKey=""
+      archivedCount={0} onSelect={onSelect} onAction={vi.fn()} onOpenArchived={vi.fn()}
+      onToggleGroup={row => setCollapsed(row.collapsed ? new Set() : new Set([row.key]))} />;
+  }
+  render(<Harness />);
+  const disclosure = screen.getByRole("button", { name: "Inbox" });
+  expect(disclosure).toHaveAttribute("aria-expanded", "true");
+  expect(screen.getByRole("link", { name: "Parent context" })).toBeInTheDocument();
+  const scroller = document.querySelector<HTMLElement>('[data-tab-scroll-root="list"]')!;
+  press(scroller, "ArrowDown");
+  expect(onSelect).toHaveBeenLastCalledWith(child);
+  expect(scrollIntoView).toHaveBeenLastCalledWith({ index: 1 });
+  onSelect.mockClear();
+  fireEvent.click(disclosure);
+  expect(disclosure).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByRole("button", { name: "child" })).toBeNull();
+  expect(onSelect).not.toHaveBeenCalled();
+  press(scroller, "ArrowDown");
+  expect(onSelect).toHaveBeenLastCalledWith(other);
+  fireEvent.click(disclosure);
+  expect(screen.getByRole("button", { name: "child" })).toBeInTheDocument();
 });

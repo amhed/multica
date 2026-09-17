@@ -85,6 +85,32 @@ ORDER BY i.created_at DESC, i.id DESC;
 SELECT * FROM inbox_item
 WHERE id = $1;
 
+-- name: ListInboxIssueAncestors :many
+-- One batch for the issues actually present in this recipient's inbox.
+-- Every hop is workspace-scoped; a broken/cross-workspace link ends the path.
+WITH RECURSIVE ancestors AS (
+    SELECT child.id AS issue_id, parent.id, parent.parent_issue_id,
+           parent.title, parent.status, 1 AS depth,
+           ARRAY[child.id, parent.id] AS visited
+    FROM issue child
+    JOIN issue parent ON parent.id = child.parent_issue_id
+        AND parent.workspace_id = child.workspace_id
+    WHERE child.workspace_id = sqlc.arg('workspace_id')
+      AND child.id = ANY(sqlc.arg('issue_ids')::uuid[])
+      AND parent.id <> child.id
+    UNION ALL
+    SELECT ancestors.issue_id, parent.id, parent.parent_issue_id,
+           parent.title, parent.status, ancestors.depth + 1,
+           ancestors.visited || parent.id
+    FROM ancestors
+    JOIN issue parent ON parent.id = ancestors.parent_issue_id
+        AND parent.workspace_id = sqlc.arg('workspace_id')
+    WHERE NOT parent.id = ANY(ancestors.visited)
+)
+SELECT issue_id, id, title, status, depth
+FROM ancestors
+ORDER BY issue_id, depth;
+
 -- name: GetInboxItemInWorkspace :one
 SELECT * FROM inbox_item
 WHERE id = $1 AND workspace_id = $2;
