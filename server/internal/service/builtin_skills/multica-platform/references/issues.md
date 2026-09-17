@@ -410,8 +410,8 @@ multica issue create --title "Step 3" --parent <issue-id> --assignee <agent> --s
 The [Inbox guide](https://multica.ai/docs/inbox#related-issues-stay-together)
 owns the member-facing grouping, filtering, navigation, and read/archive behavior.
 
-For the optional `issue_ancestors` response contract, see `InboxItemResponse` in
-`server/internal/handler/inbox.go` and `InboxItemListSchema` in
-`packages/core/api/schemas.ts`. `ListInboxIssueAncestors` in
-`server/pkg/db/queries/inbox.sql` owns the batched, workspace-scoped, cycle-safe
-lookup; generated bindings must come from `make sqlc`.
+Inbox list responses may include `issue_ancestors`, ordered from the immediate
+parent to the root, with each ancestor's `id`, `title`, and `status`. The field
+is optional; clients must accept responses without it. Ancestors belong to the
+same workspace and provide context only, with read/archive actions applying to
+individual notifications. The lookup batches issues and stops at ancestry cycles.

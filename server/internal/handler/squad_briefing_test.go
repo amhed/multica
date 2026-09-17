@@ -420,15 +420,10 @@ func TestClaimTask_LeaderGetsBriefing(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
 	}
-	ctx := context.Background()
-
-	var leaderID, runtimeID string
-	if err := testPool.QueryRow(ctx,
-		`SELECT id, runtime_id FROM agent WHERE workspace_id = $1 ORDER BY created_at ASC LIMIT 1`,
-		testWorkspaceID,
-	).Scan(&leaderID, &runtimeID); err != nil {
-		t.Fatalf("get leader agent: %v", err)
-	}
+	// A suite-wide runtime can age past the claim freshness window before
+	// this test runs. Own the runtime and agent so the claim is independent.
+	runtimeID := dbfx.Runtime(t, "Briefing Leader Runtime")
+	leaderID := dbfx.Agent(t, "Briefing Leader", runtimeID)
 
 	squad := seedSquadForBriefing(t, leaderID, "Briefing Claim Squad", "Be terse.")
 
@@ -470,16 +465,10 @@ func TestClaimTask_NonLeaderGetsNoBriefing(t *testing.T) {
 
 	squad := seedSquadForBriefing(t, leaderID, "Non-Leader Squad", "Squad guidance.")
 
-	// Create a second agent (NOT the leader) with its own runtime so the
-	// claim path picks its task without ambiguity.
-	helperID := createHandlerTestAgent(t, "Non Leader Helper", []byte("[]"))
+	// Own a fresh runtime rather than inheriting the suite-wide heartbeat.
+	helperRuntime := dbfx.Runtime(t, "Non Leader Helper Runtime")
+	helperID := dbfx.Agent(t, "Non Leader Helper", helperRuntime)
 	addAgentMember(t, squad.ID, helperID, "")
-	var helperRuntime string
-	if err := testPool.QueryRow(ctx,
-		`SELECT runtime_id FROM agent WHERE id = $1`, helperID,
-	).Scan(&helperRuntime); err != nil {
-		t.Fatalf("get helper runtime: %v", err)
-	}
 
 	queueSquadIssueTaskFor(t, util.UUIDToString(squad.ID), helperID, helperRuntime, 95002)
 
