@@ -409,6 +409,10 @@ func TestInboxAncestorsStopAtCrossWorkspaceLinksAndCycles(t *testing.T) {
 	})
 	var items []InboxItemResponse
 	list := func() {
+		// Decode each response into fresh rows. encoding/json reuses slice
+		// elements, so an omitted issue_ancestors field would retain the
+		// previous response's ancestors after the parent is deleted.
+		items = nil
 		testutil.Call(t, inboxWorkspaceHandler(testHandler.ListInbox), inboxRequest(http.MethodGet, "/api/inbox", workspaceID)).Want(http.StatusOK).JSON(&items)
 	}
 	list()

@@ -45,16 +45,28 @@ The inbox is only for workspace members. Even when an agent is the assignee or a
 
 ## Related issues stay together
 
-On web and desktop, child notifications appear under their parent issue. Groups
-start expanded and move up when any matching notification in the group is newer.
-Collapse a group to keep its child-update and unread counts visible while hiding
-its descendants.
+On web and desktop, child notifications appear under their parent issue in both
+the inbox and Archived. Groups start expanded and are ordered by their newest
+matching notification, with parents before children. Collapse a group to hide
+its descendants while keeping its child-update count visible; the active inbox
+also shows the group's unread count.
 
 A parent without a matching notification appears as **Parent context**. Opening
 it opens the issue; it does not add an unread notification or mark children read.
 Filters apply to notifications, with parents retained for context. Only children
 with matching inbox notifications appear, not every sub-issue in the project.
 Archiving or reading an issue affects its own notifications, not its descendants.
+
+Up and Down arrows move through visible notifications in list order, skipping
+context-only parents and collapsed descendants. Archiving or restoring the
+selected notification selects the next visible notification, or the previous
+one at the end of the list. Collapsing a group containing the selection clears
+that selection without marking its parent read.
+
+Opening an inbox link to a child expands its ancestor groups when that child
+matches the current view and filters. For notifications with more than one
+ancestor, the detail pane shows links to the full parent issue path. Comment
+previews display plain text with readable mention labels.
 
 ## Handle notifications
 

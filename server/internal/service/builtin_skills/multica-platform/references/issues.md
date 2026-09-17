@@ -405,17 +405,13 @@ multica issue create --title "Step 2" --parent <issue-id> --assignee <agent> --s
 multica issue create --title "Step 3" --parent <issue-id> --assignee <agent> --stage 3 --status backlog
 ```
 
-
 ## Inbox hierarchy
 
-Web and desktop group child notifications under their real parent issues, ordered
-by the newest matching notification in each branch. Active and archived inbox
-list responses can include `issue_ancestors`, an array of `{id, title, status}`
-ordered from immediate parent to root. Ancestors are workspace-scoped context,
-not additional notifications. Clients must tolerate this optional field being
-absent and keep rendering flat rows on older servers.
+The [Inbox guide](https://multica.ai/docs/inbox#related-issues-stay-together)
+owns the member-facing grouping, filtering, navigation, and read/archive behavior.
 
-A parent without a matching notification appears as context only. Reading or
-archiving a parent does not read or archive its children. Filters match the
-notifications first and retain only the ancestors needed to explain those
-matches. Agents still receive runs rather than consuming the member inbox.
+For the optional `issue_ancestors` response contract, see `InboxItemResponse` in
+`server/internal/handler/inbox.go` and `InboxItemListSchema` in
+`packages/core/api/schemas.ts`. `ListInboxIssueAncestors` in
+`server/pkg/db/queries/inbox.sql` owns the batched, workspace-scoped, cycle-safe
+lookup; generated bindings must come from `make sqlc`.
