@@ -12,7 +12,7 @@ import {
   patchInboxIssueProjection,
 } from "./ws-updaters";
 import { inboxKeys } from "./queries";
-import type { InboxItem } from "../types";
+import type { ArchivedInboxPage, InboxItem } from "../types";
 
 const wsId = "ws-1";
 
@@ -533,5 +533,30 @@ it("invalidates the first inbox load when an issue update arrives before ancestr
   await request;
   expect(qc.getQueryState(key)?.isInvalidated).toBe(true);
   expect(qc.getQueryState(key)?.fetchStatus).toBe("idle");
+  qc.clear();
+});
+
+// The archive now stores pages and deep-link lookups, not only legacy arrays.
+it("updates parent context in paginated archives and deep-link lookups", async () => {
+  const qc = new QueryClient();
+  const page: ArchivedInboxPage = {
+    items: [makeItem("child-notice", "child", { archived: true,
+      issue_ancestors: [{ id: "parent", title: "Parent", status: "todo" }],
+    })],
+    hasMore: true,
+    nextCursor: "next-page",
+  };
+  const pagesKey = inboxKeys.pages(wsId);
+  const lookupKey = [...inboxKeys.lookup(wsId), "child"];
+  qc.setQueryData(pagesKey, { pages: [page], pageParams: [undefined] });
+  qc.setQueryData(lookupKey, page);
+  await onInboxIssueUpdated(qc, wsId, { id: "parent", title: "Renamed", status: "done", parent_issue_id: null });
+  const pages = qc.getQueryData<{ pages: ArchivedInboxPage[] }>(pagesKey)!;
+  expect(pages.pages[0]?.items[0]?.issue_ancestors?.[0]).toEqual({ id: "parent", title: "Renamed", status: "done" });
+  expect(pages.pages[0]?.nextCursor).toBe("next-page");
+  expect(qc.getQueryData<ArchivedInboxPage>(lookupKey)?.items[0]?.issue_ancestors?.[0]?.title).toBe("Renamed");
+  await onInboxIssueDeleted(qc, wsId, "parent");
+  expect(qc.getQueryData<ArchivedInboxPage>(lookupKey)?.items[0]).toMatchObject({ issue_id: "child", issue_ancestors: [] });
+  expect(qc.getQueryState(pagesKey)?.isInvalidated).toBe(true);
   qc.clear();
 });

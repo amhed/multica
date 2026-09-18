@@ -1,10 +1,13 @@
 import { act, type ReactNode } from "react";
+import { buildIssueStatusCatalog } from "@multica/core/issue-statuses/queries";
+
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@multica/core/i18n/react";
 import { WORKSPACE_PAGES } from "@multica/core/paths";
 import { SearchCommand } from "./search-command";
+vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
 import { useSearchStore } from "./search-store";
 import enCommon from "../locales/en/common.json";
 import enAuth from "../locales/en/auth.json";
@@ -278,6 +281,7 @@ vi.mock("@multica/core/issues/mutations", () => ({
 
 vi.mock("@multica/core/issue-statuses/hooks", () => ({
   useIssueStatuses: () => ({
+    ...buildIssueStatusCatalog([]),
     inCategory: (category: string) => mockInCategory.current(category),
   }),
 }));
@@ -963,6 +967,22 @@ describe("SearchCommand", () => {
 
     expect(mockUpdateIssueMutate).toHaveBeenCalledWith({ id: "issue-1", status: "done" });
     expect(useSearchStore.getState().open).toBe(false);
+  });
+
+  it("keeps In Review distinct from other Started statuses", async () => {
+    const user = userEvent.setup();
+    mockPathname.current = "/ws-test/issues/issue-1";
+    mockAllIssues.current = [
+      { id: "issue-1", identifier: "MUL-42", title: "Demo", status: "in_progress" },
+    ];
+    mockInCategory.current = (category) => category === "started" ? [{ key: "qa" }] : [];
+    renderSearch();
+    await user.type(screen.getByPlaceholderText("Type a command or search..."), "review");
+    const reviewItem = await screen.findByText(
+      (_, el) => el?.textContent === "Mark as In Review" && el?.tagName === "SPAN",
+    );
+    await user.click(reviewItem);
+    expect(mockUpdateIssueMutate).toHaveBeenCalledWith({ id: "issue-1", status: "in_review" });
   });
 
   it("resolves a category to the workspace's first active custom status in it", async () => {

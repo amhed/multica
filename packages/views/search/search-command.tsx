@@ -1,6 +1,6 @@
 "use client";
 
-import { issueBehavesAs, issueStatusCategory } from "@multica/core/issues";
+import { issueStatusCategory } from "@multica/core/issues";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
@@ -23,7 +23,7 @@ import { Command as CommandPrimitive } from "cmdk";
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type {
-  IssueStatusCategory,
+  BuiltInIssueStatus,
   MemberWithUser,
   SearchIssueResult,
   SearchProjectResult,
@@ -42,8 +42,8 @@ import {
 } from "@multica/core/issues/stores";
 import { issueDetailOptions, issueTimelineOptions } from "@multica/core/issues/queries";
 import { useUpdateIssue } from "@multica/core/issues/mutations";
-import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
 import { useWorkspaceId } from "@multica/core";
+import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
 import { useWorkspacePaths, WORKSPACE_PAGES } from "@multica/core/paths";
 import type { WorkspacePageKey, WorkspacePaths } from "@multica/core/paths";
 import { useModalStore } from "@multica/core/modals";
@@ -236,6 +236,7 @@ function IssueResultRow({
   disabled?: boolean;
   onSelect: (value: string) => void;
 }) {
+  const { colorOf, iconOf } = useIssueStatuses(useWorkspaceId());
   return (
     <CommandPrimitive.Item
       key={issue.id}
@@ -247,6 +248,8 @@ function IssueResultRow({
       <div className="flex items-center gap-2.5">
         <StatusIcon
           status={issue.status}
+          color={colorOf(issue.status)}
+          icon={iconOf(issue.status)}
           category={issueStatusCategory(issue) ?? undefined}
           className="size-4 shrink-0"
         />
@@ -299,12 +302,12 @@ interface CommandItem {
 
 // The status changes offered on an issue detail page, in workflow order.
 // `backlog` is intentionally omitted — it is not an action a user reaches for
-// from the palette. Each category resolves to a concrete status KEY at command
-// time via the workspace catalog, so custom statuses are honoured. (MUL-6243)
-type StatusCommandCategory = Exclude<IssueStatusCategory, "backlog">;
+// from the palette. Nonterminal commands use built-in keys: lifecycle categories
+// no longer distinguish Todo from Backlog or In Review from In Progress.
+type StatusCommandStatus = Exclude<BuiltInIssueStatus, "backlog">;
 
 const STATUS_COMMAND_ORDER: Array<{
-  category: StatusCommandCategory;
+  category: StatusCommandStatus;
   keywords: string[];
 }> = [
   { category: "todo", keywords: ["todo", "reopen"] },
@@ -375,6 +378,7 @@ export function SearchCommand() {
   const wsId = useWorkspaceId();
   const { mutate: updateIssue } = useUpdateIssue();
   const statusCatalog = useIssueStatuses(wsId);
+  const { colorOf, iconOf } = statusCatalog;
   const recentItems = useRecentIssuesStore(selectRecentIssues(wsId));
   const p: WorkspacePaths = useWorkspacePaths();
   const { theme, setTheme } = useTheme();
@@ -530,11 +534,10 @@ export function SearchCommand() {
         },
       );
 
-      // Status changes for the issue on screen. The category the issue already
-      // behaves as is skipped — offering it would be a no-op — and each
-      // remaining category resolves to a concrete status KEY via the catalog so
-      // a workspace's custom statuses are honoured. (MUL-6243)
-      const statusCommandLabels: Record<StatusCommandCategory, string> = {
+      // Preserve concrete workflow actions under the four-category model.
+      // Custom terminal statuses still share completion/cancellation semantics;
+      // custom started/unstarted statuses do not inherit built-in automation.
+      const statusCommandLabels: Record<StatusCommandStatus, string> = {
         todo: t(($) => $.commands.mark_as_todo),
         in_progress: t(($) => $.commands.mark_as_in_progress),
         in_review: t(($) => $.commands.mark_as_in_review),
@@ -543,13 +546,14 @@ export function SearchCommand() {
         cancelled: t(($) => $.commands.mark_as_cancelled),
       };
       for (const { category, keywords } of STATUS_COMMAND_ORDER) {
-        if (issueBehavesAs(currentIssue, category)) continue;
-        const statusKey = statusCatalog.inCategory(category)[0]?.key ?? category;
+        const terminalCategory = category === "done" ? "done" : category === "cancelled" ? "closed" : null;
+        if (currentIssue.status === category || (terminalCategory && issueStatusCategory(currentIssue) === terminalCategory)) continue;
+        const statusKey = terminalCategory ? statusCatalog.inCategory(terminalCategory)[0]?.key ?? category : category;
         items.push({
           key: `mark-as-${category}`,
           label: statusCommandLabels[category],
           iconNode: (
-            <StatusIcon status={category} category={category} className="size-4 shrink-0" />
+            <StatusIcon status={statusKey} category={statusCatalog.categoryOf(statusKey)} className="size-4 shrink-0" />
           ),
           keywords: ["mark", "status", ...keywords],
           onSelect: () => {
@@ -1070,6 +1074,8 @@ export function SearchCommand() {
                   >
                     <StatusIcon
                       status={item.status}
+                      color={colorOf(item.status)}
+                      icon={iconOf(item.status)}
                       category={issueStatusCategory(item) ?? undefined}
                       className="size-4 shrink-0"
                     />
