@@ -138,7 +138,13 @@ test("inbox groups preserve context, selection, and individual notification acti
     await row(child.title).hover();
     await row(child.title).getByRole("button", { name: "Unarchive", exact: true }).click();
     await expect.poll(async () => (await request("/api/inbox")).some((item: { id: string }) => item.id === childNotification)).toBe(true);
+    await expect(page).toHaveURL(/view=archived/);
+    await expect(page.getByText("No archived notifications", { exact: true })).toBeVisible();
+    await expect(list.getByText(child.title, { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Archived", exact: true }).click();
     await expect(page).not.toHaveURL(/view=archived/);
+    await list.getByRole("button", { name: "Expand Launch readiness", exact: true }).click();
+    await expect(list.getByText(child.title, { exact: true })).toBeVisible();
 
     // Changes arrive over the live WebSocket; no reload or query invalidation
     // from the test should be necessary to refresh context and reparenting.

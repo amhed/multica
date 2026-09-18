@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/util/secretbox"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -527,5 +529,131 @@ func TestRegistrationTerminalWriteStopsWhenSessionIsGone(t *testing.T) {
 
 	if counting.calls != 1 {
 		t.Errorf("want a single attempt for a session that no longer exists, got %d", counting.calls)
+	}
+}
+
+type registrationFailureTx struct {
+	pgx.Tx
+	t          *testing.T
+	stage      string
+	rolledBack bool
+}
+
+func (tx *registrationFailureTx) Begin(context.Context) (pgx.Tx, error) {
+	return tx, nil
+}
+
+func (tx *registrationFailureTx) Rollback(context.Context) error {
+	tx.rolledBack = true
+	return nil
+}
+
+func (tx *registrationFailureTx) Commit(context.Context) error {
+	return errors.New("injected commit failure")
+}
+
+func (tx *registrationFailureTx) QueryRow(_ context.Context, sql string, _ ...any) pgx.Row {
+	return registrationFailureRow(func(_ ...any) error {
+		switch {
+		case strings.Contains(sql, "ReclaimDeadChannelInstallationByAppID"):
+			if tx.stage == "reclaim" {
+				return errors.New("injected reclaim failure")
+			}
+		case strings.Contains(sql, "UpsertChannelInstallation"):
+			if tx.stage == "upsert" {
+				return errors.New("injected upsert failure")
+			}
+			if tx.stage == "conflict" {
+				return &pgconn.PgError{Code: pgUniqueViolation}
+			}
+		case strings.Contains(sql, "GetChannelInstallationOwnerByAppID"):
+			if !tx.rolledBack {
+				tx.t.Error("transaction still open during conflict owner lookup")
+			}
+			return pgx.ErrNoRows
+		default:
+			tx.t.Fatalf("unexpected query: %s", sql)
+		}
+		return nil
+	})
+}
+
+type registrationFailureRow func(...any) error
+
+func (row registrationFailureRow) Scan(dest ...any) error {
+	return row(dest...)
+}
+
+type registrationBotAPI struct {
+	APIClient
+}
+
+func (registrationBotAPI) GetBotInfo(context.Context, InstallationCredentials) (BotInfo, error) {
+	return BotInfo{OpenID: "bot-id"}, nil
+}
+
+type rollbackCheckingStore struct {
+	InstallSessionStore
+	t     *testing.T
+	tx    *registrationFailureTx
+	calls int
+}
+
+func (s *rollbackCheckingStore) MarkTerminal(ctx context.Context, id string, outcome InstallSessionOutcome, ttl time.Duration) error {
+	s.calls++
+	if !s.tx.rolledBack {
+		s.t.Error("transaction still open during terminal status write")
+	}
+	if s.calls == 1 {
+		return errors.New("injected session store outage")
+	}
+	return s.InstallSessionStore.MarkTerminal(ctx, id, outcome, ttl)
+}
+
+func TestFinishSuccessRollsBackBeforeReportingFailure(t *testing.T) {
+	for _, tc := range []struct {
+		stage  string
+		reason string
+	}{
+		{"reclaim", RegistrationReasonInternalError},
+		{"upsert", RegistrationReasonInstallationConflict},
+		{"conflict", RegistrationReasonInstallationConflict},
+		{"bind", RegistrationReasonInstallerBindFailed},
+		{"commit", RegistrationReasonInternalError},
+	} {
+		t.Run(tc.stage, func(t *testing.T) {
+			s := newRegistrationServiceForTest(t)
+			tx := &registrationFailureTx{t: t, stage: tc.stage}
+			s.tx = tx
+			s.queries = NewChannelStore(db.New(tx))
+			s.api = registrationBotAPI{}
+			box, err := secretbox.New(make([]byte, secretbox.KeySize))
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.installs = &InstallationService{box: box}
+			binder := &fakeInstallerBinder{}
+			if tc.stage == "bind" {
+				binder.err = errors.New("injected binding failure")
+			}
+			s.binder = binder
+			store := &rollbackCheckingStore{InstallSessionStore: s.sessionStore, t: t, tx: tx}
+			s.sessionStore = store
+			ws := uuidFromStringSvc(t, "11111111-1111-1111-1111-111111111111")
+			sess := plantSession(t, s, "failure", ws, time.Now().Add(time.Hour))
+
+			s.finishSuccess(context.Background(), sess, &PollResult{ClientID: "app-id", ClientSecret: "secret"}, RegionFeishu)
+
+			if store.calls != 2 {
+				t.Fatalf("terminal write attempts = %d, want 2", store.calls)
+			}
+			state, err := s.GetSession(context.Background(), ws, sess.id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if state.Status != RegistrationStatusError || state.ErrorReason != tc.reason {
+				t.Fatalf("terminal state = %s / %s, want error / %s", state.Status, state.ErrorReason, tc.reason)
+			}
+		})
 	}
 }

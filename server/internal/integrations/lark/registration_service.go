@@ -721,6 +721,7 @@ func (s *RegistrationService) finishSuccess(ctx context.Context, sess *registrat
 	// reactivated in place by the upsert; an active/archived agent stays owned),
 	// so the upsert surfaces the conflict below instead of stealing the bot.
 	if err := qtx.ReclaimDeadInstallationByAppID(ctx, sess.workspaceID, sess.agentID, res.ClientID); err != nil {
+		_ = tx.Rollback(ctx)
 		s.cfg.Logger.Warn("lark registration: reclaim dead installation",
 			"session_id", sess.id, "err", err)
 		s.markError(sess, RegistrationReasonInternalError, err.Error())
@@ -738,6 +739,7 @@ func (s *RegistrationService) finishSuccess(ctx context.Context, sess *registrat
 		Region:             string(region),
 	})
 	if err != nil {
+		_ = tx.Rollback(ctx)
 		s.cfg.Logger.Warn("lark registration: upsert installation",
 			"session_id", sess.id, "err", err)
 		// A unique violation here means the app_id slot is held by a LIVE owner
@@ -759,6 +761,7 @@ func (s *RegistrationService) finishSuccess(ctx context.Context, sess *registrat
 		MulticaUserID:  sess.initiatorID,
 		LarkOpenID:     res.OpenID,
 	}); err != nil {
+		_ = tx.Rollback(ctx)
 		s.cfg.Logger.Warn("lark registration: bind installer",
 			"session_id", sess.id, "err", err)
 		s.markError(sess, RegistrationReasonInstallerBindFailed, err.Error())
@@ -766,6 +769,7 @@ func (s *RegistrationService) finishSuccess(ctx context.Context, sess *registrat
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		_ = tx.Rollback(ctx)
 		s.cfg.Logger.Error("lark registration: commit",
 			"session_id", sess.id, "err", err)
 		s.markError(sess, RegistrationReasonInternalError, err.Error())

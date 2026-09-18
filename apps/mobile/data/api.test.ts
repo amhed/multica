@@ -1,6 +1,8 @@
+// @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "./api";
+import { invalidateSessionEpoch } from "./session-epoch";
 
 // api.ts refuses to load without a base URL; set it before the import runs.
 vi.hoisted(() => {
@@ -36,5 +38,61 @@ describe("api.deleteComment", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(url, expect.objectContaining({ method: "DELETE" }));
+  });
+});
+
+
+describe.each([
+  ["session renewal", () => api.refreshSession()],
+  ["profile", () => api.getMe()],
+  ["upload", () => api.uploadFile({ uri: "file:///test.png", name: "test.png", type: "image/png" })],
+] as const)("%s unauthorized responses", (_name, request) => {
+  const onUnauthorized = vi.fn(() => api.setToken(null));
+  let respond: (response: Response) => void;
+
+  beforeEach(() => {
+    onUnauthorized.mockClear();
+    api.setToken("old-token");
+    api.setOptions({ onUnauthorized });
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => {
+      respond = resolve;
+    })));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    api.setToken(null);
+    api.setOptions({ onUnauthorized: undefined });
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ["logout followed by login", () => {
+      invalidateSessionEpoch();
+      api.setToken(null);
+      invalidateSessionEpoch();
+      api.setToken("new-token");
+    }, "new-token"],
+    ["credential rotation", () => api.setToken("renewed-token"), "renewed-token"],
+    ["logout before asynchronous cleanup", () => invalidateSessionEpoch(), "old-token"],
+  ] as const)("ignores stale teardown after %s", async (_transition, transition, token) => {
+    const pending = request();
+    transition();
+    respond(new Response(null, { status: 401 }));
+
+    await expect(pending).rejects.toMatchObject({ status: 401 });
+    expect(onUnauthorized).not.toHaveBeenCalled();
+    expect(api.getToken()).toBe(token);
+  });
+
+  it("tears down the session when its current credential is rejected", async () => {
+    const pending = request();
+    respond(new Response(null, { status: 401 }));
+
+    await expect(pending).rejects.toMatchObject({ status: 401 });
+    expect(onUnauthorized).toHaveBeenCalledOnce();
+    expect(api.getToken()).toBeNull();
   });
 });
