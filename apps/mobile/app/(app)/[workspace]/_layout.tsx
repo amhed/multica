@@ -319,10 +319,6 @@ export default function WorkspaceLayout() {
           options={{ title: "Notifications", headerBackTitle: "Settings" }}
         />
         <Stack.Screen
-          name="more/settings/voice"
-          options={{ title: "Voice", headerBackTitle: "Settings" }}
-        />
-        <Stack.Screen
           name="new-issue"
           options={{
             title: "New Issue",

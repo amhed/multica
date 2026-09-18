@@ -14,7 +14,11 @@ The integration merges upstream commit `2df765a3c8f39789c9fb76316378bcffc20d22d9
 - French translations cover the fork's active-agent board, status/assignment
   commands, inbox hierarchy, deploy/quota sidebar, and subscription pricing.
 - Active-agent summaries, subscription cost controls, deploy/quota indicators,
-  voice support, and the separate Carropana/SeguroHQ mobile build settings remain.
+  and the separate Carropana/SeguroHQ mobile build settings remain.
+- At the user's request, the fork's native mobile Voice tab and settings,
+  transcription/playback helpers, key stores, and voice-only dependencies and
+  microphone plugin were removed. Native voice QA is no longer applicable.
+  Ordinary chat and upstream backend channel voice-message support remain.
 
 ## Database upgrade
 
@@ -45,3 +49,28 @@ values; do not use schema rollback as a routine way to switch app versions.
 
 This integration changes source and tests. Production deployment and native
 mobile releases are separate operations.
+
+## Validation after native voice removal
+
+- Frontend: all 8,388 tests across 701 files passed after generating web MDX
+  with `pnpm --filter @multica/web mdx` and running with two Vitest workers.
+  The full rerun used `pnpm exec turbo test --filter='!@multica/mobile' --force
+  --concurrency=1 --cache-dir=.turbo/test-cache -- --maxWorkers=2`; after isolating
+  the desktop config-loader tests from Electron, the desktop suite passed with
+  `pnpm --filter @multica/desktop exec vitest run --maxWorkers=2`.
+  Missing generated MDX was setup-related; timeouts under the initial high
+  concurrency did not recur. The config-loader tests now mock the unused
+  Electron API so they do not require a downloaded native binary.
+- Mobile: `pnpm --filter @multica/mobile test` passed all 212 remaining tests
+  across 29 files and the iOS build-wrapper shell assertions.
+- Expo: `EXPO_NO_DOTENV=1 pnpm exec expo config --type introspect --json`
+  passed identity and permission assertions with explicit production overrides
+  for Carropana and SeguroHQ. Neither configuration grants microphone access;
+  both retain their existing names, bundle identifiers, and icons.
+- The lockfile passed frozen offline validation. Secure storage remains for
+  authentication and preferences; Expo still uses file-system transitively.
+- Typecheck, lint, and other static analysis were not run in this test-only
+  round, as requested. No native build or device session was performed.
+- Earlier browser, backend race, and migration-preservation evidence applies
+  to the unchanged integration paths. The reviewed resize-focus and database
+  clock test fixes and the fork integration E2E suite are retained.

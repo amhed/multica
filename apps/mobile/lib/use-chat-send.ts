@@ -1,5 +1,5 @@
 /**
- * Shared optimistic send burst for the Chat and Voice tabs.
+ * Optimistic send burst for the Chat tab.
  *
  * Mirrors web's chat-window.tsx send sequence
  * (packages/views/chat/components/chat-window.tsx):

@@ -34,6 +34,14 @@ pnpm ios:mobile:device:prod:release
 
 Everything below is for app developers — you can ignore the rest if you only wanted a personal install.
 
+## Native voice removal
+
+The fork's native Voice tab and its API-key settings were removed at the user's
+request. Mobile no longer records, transcribes, or plays back agent voice
+conversations. Ordinary chat and the separate Carropana/SeguroHQ build identities
+remain supported. Native voice QA is no longer applicable; upstream backend
+channel voice-message support is unchanged.
+
 ## Scripts
 
 | Command                                  | What it does                                                   | Backend                          |
