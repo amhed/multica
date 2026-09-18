@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Column, sqlc field, JSON field, and TypeScript field are all named `pstack_summary` / `PstackSummary`. Migration files are `450_pstack_agent_task_summary.up.sql` and `.down.sql`.
+- Column, sqlc field, JSON field, and TypeScript field are all named `pstack_summary` / `PstackSummary`. Migration ownership and upgrade safety are documented in the [fork upgrade guide](../../upstream-v0.5.0.md#database-upgrade).
 - No foreign keys, no cascades, no index in the migration. Migration files run outside a transaction.
 - The summary is generated once, in `StartTask`, never on later runs, restarts, or transcript batches. Summary text is at most 300 characters, single-spaced, plain text.
 - Config variable is `MULTICA_LLM_SUMMARY_MODEL`; empty means "use the client's default model".
@@ -31,7 +31,7 @@
 
 Server:
 
-- Create `server/migrations/450_pstack_agent_task_summary.up.sql` and `.down.sql`: the column.
+- Task-summary migration: see the fork upgrade guide linked above.
 - Modify `server/pkg/db/queries/agent.sql`: one new `SetAgentTaskPstackSummary :one` query. sqlc regenerates `server/pkg/db/generated/*`.
 - Modify `server/internal/handler/agent.go`: `AgentTaskResponse.PstackSummary` and its mapping in `taskToResponse`.
 - Create `server/internal/service/task_summary.go`: `TaskSummaryLLM` interface, prompt builder, sanitizer, `maybeGenerateTaskSummaryAsync`.
@@ -58,8 +58,7 @@ Frontend:
 ### Task 1: Column, query, and API field
 
 **Files:**
-- Create: `server/migrations/450_pstack_agent_task_summary.up.sql`
-- Create: `server/migrations/450_pstack_agent_task_summary.down.sql`
+- Task-summary migration: see the fork upgrade guide linked above.
 - Modify: `server/pkg/db/queries/agent.sql` (append after the `StartAgentTask` query block that starts at line 985)
 - Modify: `server/internal/handler/agent.go:455` (struct field) and `:802` (mapping)
 - Test: `server/internal/handler/agent_task_response_pstack_summary_test.go`
@@ -67,24 +66,9 @@ Frontend:
 **Interfaces:**
 - Produces: `db.AgentTaskQueue.PstackSummary pgtype.Text`; `Queries.SetAgentTaskPstackSummary(ctx, db.SetAgentTaskPstackSummaryParams{ID pgtype.UUID, PstackSummary pgtype.Text}) (db.AgentTaskQueue, error)`; JSON field `pstack_summary` (string, omitted when null) on every task in `GET /api/agent-task-snapshot`.
 
-- [ ] **Step 1: Write the migration pair**
+- [ ] **Step 1: Review the migration pair**
 
-`server/migrations/450_pstack_agent_task_summary.up.sql`:
-
-```sql
--- One-time, model-written headline for the active board: what this task is set
--- to do, in one or two plain sentences. Written once by TaskService.StartTask
--- through the server-internal LLM layer; NULL when the LLM layer is disabled,
--- the call failed, or the task started before this column existed. The
--- pstack_ prefix keeps this fork's column clear of upstream names.
-ALTER TABLE agent_task_queue ADD COLUMN IF NOT EXISTS pstack_summary TEXT;
-```
-
-`server/migrations/450_pstack_agent_task_summary.down.sql`:
-
-```sql
-ALTER TABLE agent_task_queue DROP COLUMN IF EXISTS pstack_summary;
-```
+Use the existing migration identified in the [fork upgrade guide](../../upstream-v0.5.0.md#database-upgrade); do not recreate the historical migration from this plan.
 
 - [ ] **Step 2: Add the sqlc query**
 
@@ -109,7 +93,7 @@ make sqlc
 make up C=api
 ```
 
-Expected: `server/pkg/db/generated/models.go` gains `PstackSummary pgtype.Text` on `AgentTaskQueue`, and `agent.sql.go` gains `SetAgentTaskPstackSummary`. `make up` applies migration 450 (check with `make status`).
+Expected: `server/pkg/db/generated/models.go` gains `PstackSummary pgtype.Text` on `AgentTaskQueue`, and `agent.sql.go` gains `SetAgentTaskPstackSummary`. Follow the fork upgrade guide for migration application and preservation of existing summaries.
 
 - [ ] **Step 4: Write the failing response-mapping test**
 
@@ -181,7 +165,7 @@ Expected: PASS, no vet output.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add server/migrations/450_pstack_agent_task_summary.up.sql server/migrations/450_pstack_agent_task_summary.down.sql server/pkg/db/queries/agent.sql server/pkg/db/generated server/internal/handler/agent.go server/internal/handler/agent_task_response_pstack_summary_test.go
+git add server/migrations/*_pstack_agent_task_summary.*.sql server/pkg/db/queries/agent.sql server/pkg/db/generated server/internal/handler/agent.go server/internal/handler/agent_task_response_pstack_summary_test.go
 git commit -m "feat(agents): add pstack_summary to agent tasks and the task snapshot"
 ```
 

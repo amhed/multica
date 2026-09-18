@@ -15,10 +15,7 @@ The integration merges upstream commit `2df765a3c8f39789c9fb76316378bcffc20d22d9
   commands, inbox hierarchy, deploy/quota sidebar, and subscription pricing.
 - Active-agent summaries, subscription cost controls, deploy/quota indicators,
   and the separate Carropana/SeguroHQ mobile build settings remain.
-- At the user's request, the fork's native mobile Voice tab and settings,
-  transcription/playback helpers, key stores, and voice-only dependencies and
-  microphone plugin were removed. Native voice QA is no longer applicable.
-  Ordinary chat and upstream backend channel voice-message support remain.
+- For native voice availability, see the [mobile README](../apps/mobile/README.md#voice-support).
 
 ## Database upgrade
 
@@ -31,9 +28,8 @@ new databases create the column there. Leave historical ledger rows intact.
 
 Regenerate database bindings with `make sqlc`. Before deployment, back up the
 target database and run the merged migrations with the matching release runner.
-Status categories are backfilled to `unstarted`, `started`, `done`, and `closed`.
-Custom statuses retain lifecycle meaning but no longer inherit built-in
-automation behavior. Use the built-in In Review status for autopilot completion.
+For status migration and compatibility constraints, see the
+[lifecycle rollout](issue-status-lifecycle-rollout.md).
 See [maintenance jobs](maintenance-jobs.md) for large, staged deployments.
 
 Rolling back migration 500 drops the summary column, including pre-existing
@@ -41,11 +37,10 @@ values; do not use schema rollback as a routine way to switch app versions.
 
 ## Deployment settings
 
-- Upstream enables anonymous daily self-host telemetry. To disable it, set
-  `DO_NOT_TRACK=1` on the backend and restart it. `ANALYTICS_DISABLED` is separate.
+- Review the [self-host telemetry policy and opt-out](../SELF_HOSTING.md#anonymous-deployment-telemetry).
 - OpenCode runtimes require OpenCode 1.1.54 or newer.
-- Active UI sessions renew automatically; review the existing `AUTH_TOKEN_TTL`
-  setting if the deployment depends on a fixed sign-in expiration.
+- Review [session lifetime](../apps/docs/content/docs/auth-setup.mdx#session-lifetime)
+  if the deployment depends on a fixed sign-in expiration.
 
 This integration changes source and tests. Production deployment and native
 mobile releases are separate operations.

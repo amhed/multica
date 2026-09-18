@@ -89,15 +89,12 @@ export default function IssuesPage() {
     issueListOptions(wsId),
   );
 
-  // Only the active-filter chips need the catalog — sections group on the
-  // category the server already resolved onto each issue. (MUL-6243)
   const catalog = useIssueStatuses();
-
-  const allIssues = data ?? [];
 
   // Scope pre-filter — mirrors web `issues-page.tsx:90-94`. Applied before
   // status/priority filtering so chip filters operate on the visible slice.
   const scopedIssues = useMemo(() => {
+    const allIssues = data ?? [];
     if (scope === "members") {
       return allIssues.filter((i) => i.assignee_type === "member");
     }
@@ -107,7 +104,7 @@ export default function IssuesPage() {
       );
     }
     return allIssues;
-  }, [allIssues, scope]);
+  }, [data, scope]);
 
   const filtered = useMemo(
     () => filterIssues(scopedIssues, statusFilters, priorityFilters),
