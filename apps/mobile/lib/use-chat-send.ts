@@ -181,6 +181,7 @@ export function useChatSend(args: {
     [
       activeSessionId,
       currentAgent,
+      accessRevoked,
       runtimeBound,
       ensureSession,
       qc,
