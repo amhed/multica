@@ -118,19 +118,6 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="voice"
-          options={{
-            title: "Voice",
-            tabBarIcon: ({ color, size, focused }) => (
-              <Image
-                source={focused ? "sf:mic.fill" : "sf:mic"}
-                tintColor={color}
-                style={{ width: size, height: size }}
-              />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="more"
           options={{
             title: "More",

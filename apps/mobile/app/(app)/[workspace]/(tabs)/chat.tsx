@@ -23,7 +23,7 @@
  * Side effects:
  *   - useChatSessionRealtime(activeSessionId) for per-record WS events
  *   - auto markRead when entering a session with has_unread
- *   - send burst lives in useChatSend (shared with the Voice tab)
+ *   - send burst lives in useChatSend
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {

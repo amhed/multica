@@ -63,6 +63,8 @@ import type {
 import {
   AppConfigSchema,
   EMPTY_APP_CONFIG,
+  EMPTY_REFRESH_SESSION_RESPONSE,
+  RefreshSessionResponseSchema,
   EMPTY_LIST_ISSUE_STATUSES_RESPONSE,
   EMPTY_LIST_ISSUES_RESPONSE,
   EMPTY_TIMELINE_ENTRIES,
@@ -72,7 +74,10 @@ import {
   TimelineEntriesSchema,
   WorkspaceSubscriptionSummarySchema,
 } from "@multica/core/api/schemas";
-import type { AppConfigResponse } from "@multica/core/api/schemas";
+import type {
+  AppConfigResponse,
+  RefreshSessionResponse,
+} from "@multica/core/api/schemas";
 import {
   ActiveTasksResponseSchema,
   AgentListSchema,
@@ -130,6 +135,7 @@ import {
 } from "./schemas";
 import type { ZodType } from "zod";
 import { getCurrentSlug } from "./workspace-store";
+import { currentSessionEpoch, sessionEpochChanged } from "./session-epoch";
 import { parseWithFallback } from "@/lib/parse-response";
 import { createRequestId } from "@/lib/request-id";
 import { buildCommentUpdateBody } from "./revision";
@@ -197,8 +203,20 @@ class ApiClient {
     this.token = token;
   }
 
+  /** The bearer token in use, or null when signed out. Session renewal reads
+   *  it to confirm the session it started from is still the live one, and the
+   *  WS client reads it so a reconnect uses the current credential. */
+  getToken(): string | null {
+    return this.token;
+  }
+
   setOptions(options: ApiClientOptions) {
     this.options = { ...this.options, ...options };
+  }
+
+  private handleUnauthorized(credentialUsed: string | null, epoch: number) {
+    if (this.token !== credentialUsed || sessionEpochChanged(epoch)) return;
+    this.options.onUnauthorized?.();
   }
 
   private async fetch<T>(
@@ -208,6 +226,8 @@ class ApiClient {
     const rid = createRequestId();
     const start = Date.now();
     const method = init.method ?? "GET";
+    const credentialUsed = this.token;
+    const epoch = currentSessionEpoch();
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -217,8 +237,8 @@ class ApiClient {
       "X-Request-ID": rid,
       ...((init.headers as Record<string, string>) ?? {}),
     };
-    if (this.token) {
-      headers["Authorization"] = `Bearer ${this.token}`;
+    if (credentialUsed) {
+      headers["Authorization"] = `Bearer ${credentialUsed}`;
     }
     // Backend middleware (server/internal/middleware/workspace.go) resolves
     // slug → ws UUID and gates membership. Mirrors packages/core/api/client.ts.
@@ -289,7 +309,7 @@ class ApiClient {
       // clear the token + navigate. Subsequent requests in flight will also
       // 401 and re-enter here, so the callback must be idempotent.
       if (res.status === 401) {
-        this.options.onUnauthorized?.();
+        this.handleUnauthorized(credentialUsed, epoch);
       }
 
       let body: unknown;
@@ -386,6 +406,21 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify({ email, code }),
     });
+  }
+
+  /**
+   * Ask the server to extend this session if it has entered its renewal
+   * window (MUL-7436). The server owns that decision — the app never reads
+   * `exp`, so a device with a skewed clock behaves exactly like one without.
+   */
+  async refreshSession(): Promise<RefreshSessionResponse> {
+    return this.fetchValidatedWith(
+      "/api/auth/refresh",
+      RefreshSessionResponseSchema,
+      EMPTY_REFRESH_SESSION_RESPONSE,
+      { method: "POST" },
+      { endpoint: "refreshSession" },
+    );
   }
 
   async getMe(opts?: { signal?: AbortSignal }): Promise<User> {
@@ -786,9 +821,19 @@ class ApiClient {
   }
 
   // DELETE /api/comments/:id — 204 No Content on success; this.fetch
-  // already short-circuits 204 → undefined.
-  async deleteComment(commentId: string): Promise<void> {
-    await this.fetch<void>(`/api/comments/${commentId}`, { method: "DELETE" });
+  // already short-circuits 204 → undefined. `keepReplies` calls the route
+  // only servers that keep a deleted comment's replies expose (#8296): if the
+  // request reaches an older server it fails instead of deleting the replies
+  // too. Pass it only when the server declared
+  // `comment_delete_keep_replies_supported`. Mirrors packages/core/api/client.ts.
+  async deleteComment(
+    commentId: string,
+    opts: { keepReplies?: boolean } = {},
+  ): Promise<void> {
+    const path = opts.keepReplies === true
+      ? `/api/comments/${commentId}/keep-replies`
+      : `/api/comments/${commentId}`;
+    await this.fetch<void>(path, { method: "DELETE" });
   }
 
   // POST /api/comments/:id/resolve — marks the thread root resolved; only
@@ -1275,6 +1320,8 @@ class ApiClient {
     const rid = createRequestId();
     const start = Date.now();
     const path = "/api/upload-file";
+    const credentialUsed = this.token;
+    const epoch = currentSessionEpoch();
 
     const headers: Record<string, string> = {
       // No Content-Type — let fetch set the multipart boundary.
@@ -1283,7 +1330,7 @@ class ApiClient {
       "X-Client-Version": "0.1.0",
       "X-Request-ID": rid,
     };
-    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+    if (credentialUsed) headers["Authorization"] = `Bearer ${credentialUsed}`;
     const slug = getCurrentSlug();
     if (slug) headers["X-Workspace-Slug"] = slug;
 
@@ -1307,7 +1354,7 @@ class ApiClient {
     const duration = Date.now() - start;
 
     if (!res.ok) {
-      if (res.status === 401) this.options.onUnauthorized?.();
+      if (res.status === 401) this.handleUnauthorized(credentialUsed, epoch);
       let body: unknown;
       try {
         body = await res.json();

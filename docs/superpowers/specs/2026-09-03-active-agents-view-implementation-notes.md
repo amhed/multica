@@ -110,7 +110,7 @@ Merged upstream/main (23 commits, including the task-to-run rename and the remov
 Two textual conflicts, both test blocks upstream had deleted; upstream's deletions were taken.
 One semantic conflict: `handoff_note` no longer exists on the client `AgentTask` type, so the headline chain is now generated headline, then trigger summary, then kind.
 The server still reads the legacy `handoff_note` column into the summary prompt, which upstream preserved.
-Upstream also added its own `450_` migration; the two files record distinct versions and both apply.
+For current migration naming and ledger preservation, see the [fork upgrade guide](../../upstream-v0.5.0.md#database-upgrade).
 
 ## Agent window is the transcript dialog (2026-09-03, post-deploy feedback)
 

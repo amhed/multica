@@ -20,7 +20,7 @@ Multica keeps its own dark theme and component vocabulary; only the structure ca
 - Actions are static: Open issue, Transcript, Stop, and the comment composer. No generated reply chips in v1.
 - "Waiting for you" is derived client-side from finished tasks. No new server-side task status.
 - The human-language headline comes from a server-side summarizer using a cheap model, called once per task when the task starts. It never re-runs.
-- The summary column is named `pstack_summary` and the migration file `450_pstack_agent_task_summary`, so a later upstream merge cannot collide on either name.
+- The summary column is named `pstack_summary`. Migration naming and upgrade safety are owned by the [fork upgrade guide](../../upstream-v0.5.0.md#database-upgrade).
 
 ## Current state
 
@@ -34,9 +34,7 @@ Multica keeps its own dark theme and component vocabulary; only the structure ca
 
 ## 1. Backend: task summary
 
-Migration `server/migrations/450_pstack_agent_task_summary.up.sql` adds `pstack_summary TEXT NULL` to `agent_task_queue`.
-No index. The down migration drops the column.
-Regenerate sqlc; the snapshot query and the task JSON gain a `pstack_summary` field.
+See the [fork upgrade guide](../../upstream-v0.5.0.md#database-upgrade) for the task-summary migration and rollback constraints. The snapshot query and task JSON expose `pstack_summary`.
 
 In `TaskService.StartTask`, after the row is running and the event is broadcast, call `maybeGenerateTaskSummaryAsync(ctx, task)`.
 It mirrors the chat-title flow.

@@ -15,7 +15,11 @@ vi.mock("react-virtuoso", () => ({
     {
       data,
       itemContent,
+      components,
+      endReached,
     }: {
+      components: { Footer: React.ComponentType };
+      endReached: () => void;
       data: InboxHierarchyRow[];
       itemContent: (index: number, item: InboxHierarchyRow) => React.ReactNode;
     },
@@ -24,9 +28,11 @@ vi.mock("react-virtuoso", () => ({
     useImperativeHandle(ref, () => ({ scrollIntoView }));
     return (
       <div>
+        <button onClick={endReached}>Reach list end</button>
         {data.map((item, index) => (
           <div key={item.key}>{itemContent(index, item)}</div>
         ))}
+        <components.Footer />
       </div>
     );
   }),
@@ -52,7 +58,10 @@ vi.mock("./inbox-list-item", () => ({
 
 vi.mock("./inbox-parent-context", () => ({ InboxParentContext: ({ issue }: { issue: { title: string } }) => <a href="#parent">{issue.title}</a> }));
 
-vi.mock("../../i18n", () => ({ useT: () => ({ t: () => "Inbox" }) }));
+vi.mock("../../i18n", async () => {
+  const strings = (await import("../../locales/en/inbox.json")).default;
+  return { useT: () => ({ t: (select: (value: typeof strings) => string) => select(strings) }) };
+});
 
 function item(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
   return {
@@ -85,7 +94,6 @@ function renderList(selectedKey: string, onSelect = vi.fn()) {
       onToggleGroup={vi.fn()}
       view="inbox"
       selectedKey={selectedKey}
-      archivedCount={0}
       onSelect={onSelect}
       onAction={vi.fn()}
       onOpenArchived={vi.fn()}
@@ -207,11 +215,11 @@ it("collapses with a real disclosure button and skips context during arrow navig
   function Harness() {
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     return <InboxList rows={buildInboxHierarchy([child, other], collapsed)} view="inbox" selectedKey=""
-      archivedCount={0} onSelect={onSelect} onAction={vi.fn()} onOpenArchived={vi.fn()}
+      onSelect={onSelect} onAction={vi.fn()} onOpenArchived={vi.fn()}
       onToggleGroup={row => setCollapsed(row.collapsed ? new Set() : new Set([row.key]))} />;
   }
   render(<Harness />);
-  const disclosure = screen.getByRole("button", { name: "Inbox" });
+  const disclosure = screen.getByRole("button", { name: "Collapse {{title}}" });
   expect(disclosure).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByRole("link", { name: "Parent context" })).toBeInTheDocument();
   const scroller = document.querySelector<HTMLElement>('[data-tab-scroll-root="list"]')!;
@@ -227,4 +235,35 @@ it("collapses with a real disclosure button and skips context during arrow navig
   expect(onSelect).toHaveBeenLastCalledWith(other);
   fireEvent.click(disclosure);
   expect(screen.getByRole("button", { name: "child" })).toBeInTheDocument();
+});
+
+describe("InboxList archive pagination", () => {
+  it("keeps a count-free archive entry available with an empty inbox", () => {
+    const onOpenArchived = vi.fn();
+    render(<InboxList rows={[]} onToggleGroup={vi.fn()} view="inbox" selectedKey="" onSelect={vi.fn()} onAction={vi.fn()} onOpenArchived={onOpenArchived} />);
+    fireEvent.click(screen.getByRole("button", { name: "Archived" }));
+    expect(onOpenArchived).toHaveBeenCalledOnce();
+  });
+
+  it("loads at the end, suppresses automatic retries, and provides a retry button", () => {
+    const onLoadMore = vi.fn();
+    const props = { rows: buildInboxHierarchy(items), onToggleGroup: vi.fn(), view: "archived" as const, selectedKey: "", onSelect: vi.fn(), onAction: vi.fn(), onOpenArchived: vi.fn(), onLoadMore };
+    const { rerender } = render(<InboxList {...props} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reach list end" }));
+    expect(onLoadMore).toHaveBeenCalledOnce();
+    onLoadMore.mockClear();
+    rerender(<InboxList {...props} loadMoreError />);
+    fireEvent.click(screen.getByRole("button", { name: "Reach list end" }));
+    expect(onLoadMore).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(onLoadMore).toHaveBeenCalledOnce();
+    expect(screen.getByText("a")).toBeTruthy();
+  });
+
+  it("loads the next page when restored rows drain the loaded window", () => {
+    const onLoadMore = vi.fn();
+    render(<InboxList rows={[]} onToggleGroup={vi.fn()} view="archived" selectedKey="" onSelect={vi.fn()} onAction={vi.fn()} onOpenArchived={vi.fn()} onLoadMore={onLoadMore} />);
+    expect(onLoadMore).toHaveBeenCalledOnce();
+    expect(screen.queryByText("No archived notifications")).toBeNull();
+  });
 });
