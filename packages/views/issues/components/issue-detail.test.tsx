@@ -2484,6 +2484,36 @@ describe("IssueDetail (shared)", () => {
       expect(bareRow?.textContent).not.toContain("/");
     });
 
+    it("renders the sub-issues list above the description when children exist", async () => {
+      mockApiObj.listChildIssues.mockResolvedValue({
+        issues: [subIssue({ id: "child-1", number: 11, identifier: "TES-11", title: "Fix login flow" })],
+      });
+
+      renderIssueDetail();
+
+      const header = await screen.findByText("Sub-issues");
+      const description = screen.getByDisplayValue("Add JWT auth to the backend");
+
+      // DOCUMENT_POSITION_FOLLOWING: the description comes after the list, so
+      // a long body no longer pushes the children below the fold.
+      expect(
+        header.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
+    it("keeps the empty-state add link below the description", async () => {
+      mockApiObj.listChildIssues.mockResolvedValue({ issues: [] });
+
+      renderIssueDetail();
+
+      const addLink = await screen.findByText("Add sub-issues");
+      const description = screen.getByDisplayValue("Add JWT auth to the backend");
+
+      expect(
+        description.compareDocumentPosition(addLink) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    });
+
     it("hides fields the user toggled off in the display preference", async () => {
       useSubIssueDisplayStore.setState({
         rowProperties: {
