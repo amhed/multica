@@ -2021,6 +2021,27 @@ export const AgentActivityBucketListSchema = z.array(z.object({
 
 export const AgentTaskListSchema = z.array(AgentTaskSchema);
 
+// Machine-wide host health from a daemon. Numeric fields default to 0 so a
+// partial server payload degrades to a benign (green) reading rather than
+// failing the whole response. `.loose()` lets phase-2 fields (stale_procs,
+// top[]) pass through before this schema knows about them.
+export const HostHealthSchema = z.object({
+  daemon_id: z.string().default(""),
+  device_name: z.string().default(""),
+  ncpu: z.number().default(0),
+  load1: z.number().default(0),
+  load5: z.number().default(0),
+  load15: z.number().default(0),
+  mem_total_kb: z.number().default(0),
+  mem_available_kb: z.number().default(0),
+  swap_total_kb: z.number().default(0),
+  swap_free_kb: z.number().default(0),
+}).loose();
+
+export const HostHealthResponseSchema = z.object({
+  hosts: z.array(HostHealthSchema).default([]),
+});
+
 // One row of a run transcript. `output_truncated` gates a completeness claim
 // the UI makes about a tool's output, so it stays `.optional()` with no
 // default: a server that does not send it means "unknown", and defaulting it

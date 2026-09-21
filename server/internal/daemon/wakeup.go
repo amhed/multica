@@ -309,13 +309,17 @@ func (d *Daemon) runWSHeartbeatSender(ctx context.Context, runtimeIDs []string, 
 }
 
 func (d *Daemon) sendWSHeartbeats(ctx context.Context, runtimeIDs []string, writes chan<- *wsOutbound) {
+	// Host metrics are machine-wide, so collect once and attach the same block
+	// to every runtime's beat; nil (non-Linux/unreadable) is omitted by the
+	// omitempty tag.
+	host, _ := collectHostHealth("/proc")
 	for _, rid := range runtimeIDs {
 		if ctx.Err() != nil {
 			return
 		}
 		frame, err := json.Marshal(protocol.Message{
 			Type:    protocol.EventDaemonHeartbeat,
-			Payload: marshalRaw(protocol.DaemonHeartbeatRequestPayload{RuntimeID: rid, SupportsBatchImport: true}),
+			Payload: marshalRaw(protocol.DaemonHeartbeatRequestPayload{RuntimeID: rid, SupportsBatchImport: true, Host: host}),
 		})
 		if err != nil {
 			d.logger.Debug("ws heartbeat marshal failed", "error", err, "runtime_id", rid)

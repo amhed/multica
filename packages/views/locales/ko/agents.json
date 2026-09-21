@@ -962,6 +962,18 @@
     "clear_selection": "선택 해제"
   },
   "active_board": {
+    "host": {
+      "title": "호스트",
+      "unavailable": "호스트 지표 없음",
+      "load": "부하",
+      "memory": "메모리",
+      "swap": "스왑",
+      "status": {
+        "green": "정상",
+        "amber": "부하 높음",
+        "red": "포화"
+      }
+    },
     "title": "진행 중",
     "empty": "현재 작업 중인 에이전트가 없습니다.",
     "running_count_other": "{{count}}개 실행 중",

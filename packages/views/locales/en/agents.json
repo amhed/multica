@@ -984,6 +984,18 @@
     "clear_selection": "Clear selection"
   },
   "active_board": {
+    "host": {
+      "title": "Host",
+      "unavailable": "Host metrics unavailable",
+      "load": "Load",
+      "memory": "Memory",
+      "swap": "Swap",
+      "status": {
+        "green": "Healthy",
+        "amber": "Under pressure",
+        "red": "Saturated"
+      }
+    },
     "title": "Active",
     "empty": "No agents are working right now.",
     "running_count_one": "{{count}} running",

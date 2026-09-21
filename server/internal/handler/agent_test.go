@@ -1596,3 +1596,27 @@ func insertHandlerTestTask(t *testing.T, agentID string) string {
 // Defence-in-depth: spot-check that the package compiles a small
 // fmt.Sprintf so accidental imports stay tidy.
 var _ = fmt.Sprintf
+
+func TestGetWorkspaceHostHealth_EmptyWhenNoDaemonReported(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	w := httptest.NewRecorder()
+	req := newRequest(http.MethodGet, "/api/host-health", nil)
+	testHandler.GetWorkspaceHostHealth(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetWorkspaceHostHealth: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp hostHealthResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	// No daemon has reported a host block in the test harness, so the list is
+	// present but empty (never null) — the shape the UI parses.
+	if resp.Hosts == nil {
+		t.Fatal("hosts must serialize as [] not null")
+	}
+	if len(resp.Hosts) != 0 {
+		t.Fatalf("expected no hosts, got %d", len(resp.Hosts))
+	}
+}

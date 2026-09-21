@@ -962,6 +962,18 @@
     "clear_selection": "清除选择"
   },
   "active_board": {
+    "host": {
+      "title": "主机",
+      "unavailable": "暂无主机指标",
+      "load": "负载",
+      "memory": "内存",
+      "swap": "交换空间",
+      "status": {
+        "green": "正常",
+        "amber": "压力较大",
+        "red": "已饱和"
+      }
+    },
     "title": "进行中",
     "empty": "当前没有智能体在工作。",
     "running_count_other": "{{count}} 个运行中",
