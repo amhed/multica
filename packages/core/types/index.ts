@@ -24,6 +24,8 @@ export type {
   TaskEvidence,
   AgentActivityBucket,
   AgentRunCount,
+  HostHealth,
+  HostHealthResponse,
   WorkspaceWorkingAgent,
   WorkspaceWorkingAgentType,
   WorkspaceWorkingAgentMineRelation,

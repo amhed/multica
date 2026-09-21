@@ -25,6 +25,7 @@ import {
 } from "./active-board";
 import { ActiveTaskCard } from "./active-task-card";
 import { AgentWindow } from "./agent-window";
+import { HealthCard } from "./host-health-card";
 
 const TASK_PARAM = "task";
 const GRID_CLASS = "grid grid-cols-1 gap-4 min-[900px]:grid-cols-2";
@@ -141,6 +142,9 @@ export function ActiveBoardPage() {
         description={description}
       />
       <div className={cn("min-h-0 flex-1 overflow-y-auto pt-4", PAGE_GUTTER)}>
+        <div className="mb-4">
+          <HealthCard wsId={wsId} />
+        </div>
         {isLoading ? (
           <div className={GRID_CLASS}>
             {Array.from({ length: 4 }).map((_, i) => (

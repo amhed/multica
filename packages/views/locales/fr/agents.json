@@ -984,6 +984,18 @@
     "clear_selection": "Effacer la sélection"
   },
   "active_board": {
+    "host": {
+      "title": "Hôte",
+      "unavailable": "Métriques hôte indisponibles",
+      "load": "Charge",
+      "memory": "Mémoire",
+      "swap": "Swap",
+      "status": {
+        "green": "Sain",
+        "amber": "Sous pression",
+        "red": "Saturé"
+      }
+    },
     "title": "Actifs",
     "empty": "Aucun agent ne travaille actuellement.",
     "running_count_one": "{{count}} en cours",

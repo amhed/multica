@@ -173,6 +173,23 @@ type client struct {
 
 	// rpcSem bounds concurrent RPC handlers for this connection.
 	rpcSem chan struct{}
+
+	// hostMu guards host, the latest machine-wide health snapshot reported on
+	// this connection's heartbeats. One connection is one daemon on one host.
+	hostMu sync.Mutex
+	host   *protocol.DaemonHost
+}
+
+func (c *client) setHost(h *protocol.DaemonHost) {
+	c.hostMu.Lock()
+	c.host = h
+	c.hostMu.Unlock()
+}
+
+func (c *client) getHost() *protocol.DaemonHost {
+	c.hostMu.Lock()
+	defer c.hostMu.Unlock()
+	return c.host
 }
 
 // trySend delivers frame to the write pump without blocking and without ever
@@ -831,6 +848,40 @@ func (h *Hub) UserConnectionCount(userID string) int {
 	return len(h.byUser[userID])
 }
 
+// HostHealthEntry pairs a reporting daemon with its latest host snapshot.
+type HostHealthEntry struct {
+	DaemonID string
+	Host     protocol.DaemonHost
+}
+
+// WorkspaceHostHealth returns the latest host snapshot from each daemon
+// connected for the workspace, deduped by daemon id. Connections that have
+// not reported a snapshot yet are omitted.
+func (h *Hub) WorkspaceHostHealth(workspaceID string) []HostHealthEntry {
+	h.mu.RLock()
+	clients := make([]*client, 0, len(h.byWorkspace[workspaceID]))
+	for c := range h.byWorkspace[workspaceID] {
+		clients = append(clients, c)
+	}
+	h.mu.RUnlock()
+
+	seen := make(map[string]struct{}, len(clients))
+	out := make([]HostHealthEntry, 0, len(clients))
+	for _, c := range clients {
+		host := c.getHost()
+		if host == nil {
+			continue
+		}
+		id := c.identity.DaemonID
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, HostHealthEntry{DaemonID: id, Host: *host})
+	}
+	return out
+}
+
 func (h *Hub) register(c *client) {
 	h.mu.Lock()
 	h.clients[c] = true
@@ -1089,6 +1140,13 @@ func (c *client) handleHeartbeatFrame(raw json.RawMessage) {
 			"daemon_id", c.identity.DaemonID,
 			"runtime_id", payload.RuntimeID)
 		return
+	}
+
+	// Record the machine-wide health snapshot (best-effort telemetry, not an
+	// authorization input). Only overwrite when the beat carries one, so a
+	// transient omission does not wipe the last-known value.
+	if payload.Host != nil {
+		c.setHost(payload.Host)
 	}
 
 	// Intentionally do NOT wrap this ctx with WithTimeout. The handler

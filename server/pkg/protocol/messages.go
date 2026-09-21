@@ -389,6 +389,26 @@ type ChatSessionUpdatedPayload struct {
 type DaemonHeartbeatRequestPayload struct {
 	RuntimeID           string `json:"runtime_id"`
 	SupportsBatchImport bool   `json:"supports_batch_import,omitempty"`
+	// Host is a machine-wide health snapshot. It is optional: older daemons
+	// and non-Linux hosts omit it. The block is identical across the runtimes
+	// on one host, so the server stores the latest per connection.
+	Host *DaemonHost `json:"host,omitempty"`
+}
+
+// DaemonHost is a point-in-time, machine-wide health snapshot collected from
+// the host the daemon runs on (load average, memory, swap). All *_kb fields
+// are kibibytes, mirroring /proc/meminfo. It carries no per-process detail in
+// phase 1; a stale-process count and top-offenders list are a planned
+// addition (see the server-health design spec).
+type DaemonHost struct {
+	NCPU           int     `json:"ncpu"`
+	Load1          float64 `json:"load1"`
+	Load5          float64 `json:"load5"`
+	Load15         float64 `json:"load15"`
+	MemTotalKB     uint64  `json:"mem_total_kb"`
+	MemAvailableKB uint64  `json:"mem_available_kb"`
+	SwapTotalKB    uint64  `json:"swap_total_kb"`
+	SwapFreeKB     uint64  `json:"swap_free_kb"`
 }
 
 // DaemonHeartbeatAckPayload is the server's reply to DaemonHeartbeatRequestPayload.

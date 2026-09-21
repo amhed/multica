@@ -3006,3 +3006,36 @@ func (h *Handler) ListWorkspaceAgentTaskSnapshot(w http.ResponseWriter, r *http.
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+type hostHealthEntryResponse struct {
+	DaemonID   string `json:"daemon_id"`
+	DeviceName string `json:"device_name"`
+	protocol.DaemonHost
+}
+
+type hostHealthResponse struct {
+	Hosts []hostHealthEntryResponse `json:"hosts"`
+}
+
+// GetWorkspaceHostHealth returns the latest machine-wide health snapshot from
+// each daemon connected for the workspace (load, memory, swap). It is a new
+// endpoint, so it changes no existing response shape; an empty list is
+// returned when no daemon has reported (older daemon, non-Linux host, or the
+// hub is disabled), which the UI renders as "unavailable".
+func (h *Handler) GetWorkspaceHostHealth(w http.ResponseWriter, r *http.Request) {
+	workspaceID := h.resolveWorkspaceID(r)
+	if _, ok := h.workspaceMember(w, r, workspaceID); !ok {
+		return
+	}
+	resp := hostHealthResponse{Hosts: []hostHealthEntryResponse{}}
+	if h.DaemonHub != nil {
+		for _, e := range h.DaemonHub.WorkspaceHostHealth(workspaceID) {
+			resp.Hosts = append(resp.Hosts, hostHealthEntryResponse{
+				DaemonID:   e.DaemonID,
+				DeviceName: e.DaemonID,
+				DaemonHost: e.Host,
+			})
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
+}

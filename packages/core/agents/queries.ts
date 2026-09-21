@@ -40,6 +40,25 @@ export const agentRunCountsKeys = {
   last30d: (wsId: string) => [...agentRunCountsKeys.all(wsId), "30d"] as const,
 };
 
+export const hostHealthKeys = {
+  all: (wsId: string) => ["workspaces", wsId, "host-health"] as const,
+};
+
+// Machine-wide health (load/memory/swap) of the daemon host(s) serving the
+// workspace. Unlike the task snapshot it does not ride WS task events, so it
+// polls on its own short interval; the values move slowly, so 15s matches the
+// daemon's heartbeat cadence without hammering the endpoint.
+export function hostHealthOptions(wsId: string) {
+  return queryOptions({
+    queryKey: hostHealthKeys.all(wsId),
+    queryFn: () => api.getHostHealth(),
+    staleTime: 10 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchInterval: 15 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 // Workspace-scoped agent task snapshot — every active task plus each agent's
 // most recent terminal task. This is the single shared source of truth that
 // powers per-agent presence derivation across the app. One fetch per

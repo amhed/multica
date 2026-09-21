@@ -37,6 +37,7 @@ import type {
   UpdateAgentEnvRequest,
   AgentTask,
   AgentActivityBucket,
+  HostHealthResponse,
   AgentRunCount,
   WorkspaceWorkingAgent,
   WorkspaceWorkingAgentMineRelation,
@@ -247,6 +248,7 @@ import {
   RuntimeProfileListSchema,
   AgentTaskListSchema,
   AgentActivityBucketListSchema,
+  HostHealthResponseSchema,
   AttachmentResponseSchema,
   CancelTaskResponseSchema,
   ChatDraftRestoresResponseSchema,
@@ -2580,6 +2582,17 @@ export class ApiClient {
   // Workspace is resolved server-side from the X-Workspace-Slug header.
   async getAgentTaskSnapshot(): Promise<AgentTask[]> {
     return this.fetch(`/api/agent-task-snapshot`);
+  }
+
+  // Machine-wide health (load/memory/swap) of the daemon host(s) serving the
+  // workspace. New endpoint; empty `hosts` means no daemon has reported yet
+  // (older daemon, non-Linux host, or hub disabled), which the card shows as
+  // "unavailable". Workspace is resolved server-side from the workspace header.
+  async getHostHealth(): Promise<HostHealthResponse> {
+    const raw = await this.fetch<unknown>(`/api/host-health`);
+    return parseWithFallback<HostHealthResponse>(raw, HostHealthResponseSchema, { hosts: [] }, {
+      endpoint: "GET /api/host-health",
+    });
   }
 
   // Independent workspace-level projection. Unlike the task snapshot, this

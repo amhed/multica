@@ -962,6 +962,18 @@
     "clear_selection": "選択を解除"
   },
   "active_board": {
+    "host": {
+      "title": "ホスト",
+      "unavailable": "ホスト指標は利用できません",
+      "load": "負荷",
+      "memory": "メモリ",
+      "swap": "スワップ",
+      "status": {
+        "green": "正常",
+        "amber": "高負荷",
+        "red": "逼迫"
+      }
+    },
     "title": "稼働中",
     "empty": "現在稼働中のエージェントはいません。",
     "running_count_other": "{{count}} 件実行中",

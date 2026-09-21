@@ -224,6 +224,27 @@ export interface AgentRunCount {
   run_count: number;
 }
 
+// Machine-wide health of a daemon host serving the workspace (load, memory,
+// swap). Reported on daemon heartbeats and surfaced by the Active board's
+// health card. All *_kb fields are kibibytes (from /proc/meminfo). Phase 2
+// will add a stale-process count and top-offenders list.
+export interface HostHealth {
+  daemon_id: string;
+  device_name: string;
+  ncpu: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  mem_total_kb: number;
+  mem_available_kb: number;
+  swap_total_kb: number;
+  swap_free_kb: number;
+}
+
+export interface HostHealthResponse {
+  hosts: HostHealth[];
+}
+
 // Privacy-safe display summary returned by GET /api/working-agents. The
 // endpoint is workspace-scoped and includes each user-authored agent with at
 // least one running task exactly once.
