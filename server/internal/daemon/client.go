@@ -211,6 +211,7 @@ func daemonCommonCapabilities() []string {
 		protocol.DaemonCapabilityRPCV1,
 		protocol.DaemonCapabilityPlatformSkillV1,
 		protocol.DaemonCapabilityCheckoutKeepsWorkV1,
+		protocol.DaemonCapabilityTaskSteerV1,
 	}
 }
 
@@ -438,6 +439,34 @@ func (c *Client) StartTask(ctx context.Context, taskID string) error {
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/start", taskID), map[string]any{}, nil)
 }
 
+type CommentSteer struct {
+	CommentID  string `json:"comment_id"`
+	AuthorName string `json:"author_name"`
+	Content    string `json:"content"`
+}
+
+func (c *Client) ClaimCommentSteer(ctx context.Context, taskID string) (*CommentSteer, error) {
+	var steer CommentSteer
+	if err := c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/steers/claim", taskID), map[string]any{}, &steer); err != nil {
+		return nil, err
+	}
+	if steer.CommentID == "" {
+		return nil, nil
+	}
+	return &steer, nil
+}
+
+func (c *Client) AckCommentSteer(ctx context.Context, taskID, commentID string, delivered bool, errText string) (string, error) {
+	var response struct {
+		Status string `json:"status"`
+	}
+	err := c.postJSONWithRetry(ctx, fmt.Sprintf("/api/daemon/tasks/%s/steers/%s/ack", taskID, commentID), map[string]any{
+		"delivered": delivered,
+		"error":     errText,
+	}, &response, []time.Duration{0, 100 * time.Millisecond, 300 * time.Millisecond})
+	return response.Status, err
+}
+
 // MarkTaskWaitingLocalDirectory parks a freshly-dispatched task in the
 // waiting_local_directory state on the server. The daemon calls this after
 // it has claimed a task whose project carries a local_directory resource
@@ -509,6 +538,8 @@ func (c *Client) ReportProgress(ctx context.Context, taskID, summary string, ste
 
 // TaskMessageData represents a single agent execution message for batch reporting.
 type TaskMessageData struct {
+	// CallID is an opaque tool-call identity scoped to one backend execution.
+	CallID  string         `json:"call_id,omitempty"`
 	Seq     int            `json:"seq"`
 	Type    string         `json:"type"`
 	Tool    string         `json:"tool,omitempty"`
@@ -1017,8 +1048,8 @@ func (c *Client) GetWorkspaceRepos(ctx context.Context, workspaceID string) (*Wo
 }
 
 // RuntimeProfile mirrors the server's workspace custom runtime profile
-// (MUL-3284). protocol_family is the provider used for task routing (it
-// selects the agent backend), while command_name is the actual executable
+// (MUL-3284). runtime_type selects the compatibility target, while
+// protocol_family identifies its execution backend. command_name is the executable
 // the daemon resolves on PATH and launches. fixed_args are launch arguments
 // every agent on this runtime inherits.
 type RuntimeProfile struct {
@@ -1026,6 +1057,7 @@ type RuntimeProfile struct {
 	WorkspaceID    string   `json:"workspace_id"`
 	DisplayName    string   `json:"display_name"`
 	ProtocolFamily string   `json:"protocol_family"`
+	RuntimeType    string   `json:"runtime_type"`
 	CommandName    string   `json:"command_name"`
 	Description    *string  `json:"description"`
 	FixedArgs      []string `json:"fixed_args"`

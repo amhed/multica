@@ -53,7 +53,7 @@ import {
 import { buildInboxHierarchy, type InboxHierarchyRow } from "@multica/core/inbox/hierarchy";
 import { useInboxCollapsedKeys, useInboxViewStore } from "@multica/core/inbox/view-store";
 
-import { IssueDetail, issueHighlightMementoKey } from "../../issues/components";
+import { IssueDetail, issueHighlightMementoKey } from "../../issues/components/issue-detail";
 import { useViewStateWriter } from "../../platform";
 import { ErrorBoundary } from "@multica/ui/components/common/error-boundary";
 import { AppLink, useNavigation, useReportNavigating } from "../../navigation";
