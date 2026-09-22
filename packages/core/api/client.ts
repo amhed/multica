@@ -38,6 +38,7 @@ import type {
   AgentTask,
   AgentActivityBucket,
   HostHealthResponse,
+  HostReapRequest,
   AgentRunCount,
   WorkspaceWorkingAgent,
   WorkspaceWorkingAgentMineRelation,
@@ -249,6 +250,8 @@ import {
   AgentTaskListSchema,
   AgentActivityBucketListSchema,
   HostHealthResponseSchema,
+  HostReapRequestSchema,
+  MALFORMED_HOST_REAP_REQUEST,
   AttachmentResponseSchema,
   CancelTaskResponseSchema,
   ChatDraftRestoresResponseSchema,
@@ -2593,6 +2596,36 @@ export class ApiClient {
     return parseWithFallback<HostHealthResponse>(raw, HostHealthResponseSchema, { hosts: [] }, {
       endpoint: "GET /api/host-health",
     });
+  }
+
+  // Admin-gated: enqueues a reaper run against a daemon's host (via
+  // heartbeat piggyback, same delivery path as model discovery). The poll
+  // endpoint below is validated the same way: an unparseable body degrades
+  // to an explicit "failed" record instead of a fabricated result or an
+  // endless spinner.
+  async initiateHostReap(
+    daemonId: string,
+    mode: "dryrun" | "apply",
+  ): Promise<{ request_id: string }> {
+    return this.fetch(`/api/host-health/${daemonId}/reap`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    });
+  }
+
+  async getHostReapResult(
+    daemonId: string,
+    requestId: string,
+  ): Promise<HostReapRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/host-health/${daemonId}/reap/${requestId}`,
+    );
+    return parseWithFallback<HostReapRequest>(
+      raw,
+      HostReapRequestSchema,
+      { ...MALFORMED_HOST_REAP_REQUEST, id: requestId, daemon_id: daemonId },
+      { endpoint: "GET /api/host-health/{daemonId}/reap/{requestId}" },
+    );
   }
 
   // Independent workspace-level projection. Unlike the task snapshot, this

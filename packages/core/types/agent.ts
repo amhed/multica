@@ -245,6 +245,47 @@ export interface HostHealthResponse {
   hosts: HostHealth[];
 }
 
+// One process line from a reaper `--json` run.
+export interface HostReapProcess {
+  pid: number;
+  age_seconds: number;
+  pcpu: string;
+  reason: string;
+  command: string;
+}
+
+// Reaper `--json` output. `load_after` and `sigkilled` are only populated
+// for an `apply` run; a `dryrun` never kills anything, so both are `null`.
+export interface HostReapResult {
+  mode: "dryrun" | "apply";
+  count: number;
+  load_before: string;
+  load_after: string | null;
+  sigkilled: number | null;
+  processes: HostReapProcess[];
+}
+
+export type HostReapStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "timeout";
+
+// A host-reap request the client polls until it reaches a terminal status.
+export interface HostReapRequest {
+  id: string;
+  daemon_id: string;
+  workspace_id: string;
+  runtime_id: string;
+  mode: "dryrun" | "apply";
+  status: HostReapStatus;
+  result: HostReapResult | null;
+  error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Privacy-safe display summary returned by GET /api/working-agents. The
 // endpoint is workspace-scoped and includes each user-authored agent with at
 // least one running task exactly once.

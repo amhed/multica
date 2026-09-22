@@ -47,6 +47,7 @@ import type {
   GroupedIssuesResponse,
   GitHubConnectResponse,
   GitHubPullRequest,
+  HostReapRequest,
   InboxItem,
   InboxWorkspaceUnread,
   Label,
@@ -2041,6 +2042,63 @@ export const HostHealthSchema = z.object({
 export const HostHealthResponseSchema = z.object({
   hosts: z.array(HostHealthSchema).default([]),
 });
+
+// One process line from a reaper `--json` run.
+const HostReapProcessSchema = z.object({
+  pid: z.number(),
+  age_seconds: z.number(),
+  pcpu: z.string(),
+  reason: z.string(),
+  command: z.string(),
+}).loose();
+
+// Reaper `--json` output, stored verbatim on the request once the daemon
+// reports back. `load_after` and `sigkilled` are only populated for an
+// `apply` run (a `dryrun` never kills anything), so both default to `null`
+// rather than 0/"" — a falsy-but-wrong value would read as "nothing was
+// killed" instead of "not applicable to this mode".
+export const HostReapResultSchema = z.object({
+  mode: z.enum(["dryrun", "apply"]),
+  count: z.number().default(0),
+  load_before: z.string().default(""),
+  load_after: z.string().nullable().default(null),
+  sigkilled: z.number().nullable().default(null),
+  processes: z.array(HostReapProcessSchema).default([]),
+}).loose();
+
+// A host-reap request the client polls until it reaches a terminal status.
+// Mirrors RuntimeModelListRequestSchema: `.loose()` and defaults so a
+// partial or older-server payload degrades gracefully instead of failing
+// the whole poll.
+export const HostReapRequestSchema = z.object({
+  id: z.string().default(""),
+  daemon_id: z.string().default(""),
+  workspace_id: z.string().default(""),
+  runtime_id: z.string().default(""),
+  mode: z.enum(["dryrun", "apply"]),
+  status: z.enum(["pending", "running", "completed", "failed", "timeout"]),
+  result: HostReapResultSchema.nullable().default(null),
+  error: z.string().optional(),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+}).loose();
+
+// Fallback for an unparseable host-reap response. `failed` is the only
+// honest choice, same reasoning as MALFORMED_RUNTIME_MODEL_LIST_REQUEST:
+// `completed` would fabricate a result and `pending` would spin the poll
+// until the client-side timeout.
+export const MALFORMED_HOST_REAP_REQUEST: HostReapRequest = {
+  id: "",
+  daemon_id: "",
+  workspace_id: "",
+  runtime_id: "",
+  mode: "dryrun",
+  status: "failed",
+  result: null,
+  error: "invalid host reap response",
+  created_at: "",
+  updated_at: "",
+};
 
 // One row of a run transcript. `output_truncated` gates a completeness claim
 // the UI makes about a tool's output, so it stays `.optional()` with no
