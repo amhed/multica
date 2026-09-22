@@ -972,6 +972,28 @@
         "green": "正常",
         "amber": "压力较大",
         "red": "已饱和"
+      },
+      "reap": {
+        "action": "清理残留进程",
+        "dialog_title": "清理残留进程",
+        "preview_pending": "正在扫描主机上的残留进程…",
+        "reselect_note": "确认操作会重新筛选进程,执行时下方列表可能已发生变化。",
+        "count_other": "找到 {{count}} 个进程",
+        "empty": "未发现残留进程。",
+        "column_pid": "PID",
+        "column_age": "存活时间",
+        "column_cpu": "CPU",
+        "column_reason": "原因",
+        "column_command": "命令",
+        "age_value": "{{seconds}} 秒",
+        "cancel": "取消",
+        "confirm_button": "立即清理",
+        "confirm_pending": "正在清理…",
+        "success_toast": "已清理 {{count}} 个进程(其中 {{sigkilled}} 个需要 SIGKILL)。负载 {{loadBefore}} → {{loadAfter}}。",
+        "apply_failed_toast": "清理失败,未收到主机的确认。",
+        "offline_title": "守护进程未响应",
+        "offline_description": "主机未在规定时间内响应,没有进程被终止。",
+        "retry": "重试"
       }
     },
     "title": "进行中",

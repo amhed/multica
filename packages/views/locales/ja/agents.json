@@ -972,6 +972,28 @@
         "green": "正常",
         "amber": "高負荷",
         "red": "逼迫"
+      },
+      "reap": {
+        "action": "残留プロセスを掃除",
+        "dialog_title": "残留プロセスを掃除",
+        "preview_pending": "ホスト上の残留プロセスをスキャン中…",
+        "reselect_note": "確定すると実行時に再度プロセスを選び直します。以下の一覧は実行前に変わる場合があります。",
+        "count_other": "{{count}} 件のプロセスが見つかりました",
+        "empty": "残留プロセスは見つかりませんでした。",
+        "column_pid": "PID",
+        "column_age": "経過時間",
+        "column_cpu": "CPU",
+        "column_reason": "理由",
+        "column_command": "コマンド",
+        "age_value": "{{seconds}}秒",
+        "cancel": "キャンセル",
+        "confirm_button": "今すぐ掃除",
+        "confirm_pending": "掃除中…",
+        "success_toast": "{{count}} 件のプロセスを掃除しました({{sigkilled}} 件は SIGKILL が必要)。負荷 {{loadBefore}} → {{loadAfter}}。",
+        "apply_failed_toast": "掃除に失敗しました。ホストからの確認を受信できませんでした。",
+        "offline_title": "デーモンが応答しませんでした",
+        "offline_description": "ホストが時間内に応答しませんでした。プロセスは終了されていません。",
+        "retry": "再試行"
       }
     },
     "title": "稼働中",

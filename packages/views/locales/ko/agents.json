@@ -972,6 +972,28 @@
         "green": "정상",
         "amber": "부하 높음",
         "red": "포화"
+      },
+      "reap": {
+        "action": "잔여 프로세스 정리",
+        "dialog_title": "잔여 프로세스 정리",
+        "preview_pending": "호스트에서 잔여 프로세스를 검색하는 중…",
+        "reselect_note": "확인하면 실행 시점에 프로세스를 다시 선택합니다. 아래 목록은 실행 전에 변경될 수 있습니다.",
+        "count_other": "{{count}}개의 프로세스를 찾았습니다",
+        "empty": "잔여 프로세스를 찾지 못했습니다.",
+        "column_pid": "PID",
+        "column_age": "경과 시간",
+        "column_cpu": "CPU",
+        "column_reason": "사유",
+        "column_command": "명령어",
+        "age_value": "{{seconds}}초",
+        "cancel": "취소",
+        "confirm_button": "지금 정리",
+        "confirm_pending": "정리 중…",
+        "success_toast": "{{count}}개 프로세스를 정리했습니다({{sigkilled}}개는 SIGKILL 필요). 부하 {{loadBefore}} → {{loadAfter}}.",
+        "apply_failed_toast": "정리에 실패했습니다. 호스트로부터 확인을 받지 못했습니다.",
+        "offline_title": "데몬이 응답하지 않습니다",
+        "offline_description": "호스트가 제시간에 응답하지 않았습니다. 종료된 프로세스가 없습니다.",
+        "retry": "다시 시도"
       }
     },
     "title": "진행 중",

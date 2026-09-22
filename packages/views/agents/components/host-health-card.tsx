@@ -1,11 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
+import { Button } from "@multica/ui/components/ui/button";
 import { cn } from "@multica/ui/lib/utils";
 import { hostHealthOptions } from "@multica/core/agents";
+import { useAuthStore } from "@multica/core/auth";
+import { memberListOptions } from "@multica/core/workspace/queries";
 import type { HostHealth } from "@multica/core/types";
 import { useT } from "../../i18n";
+import { ReapDialog } from "./reap-dialog";
 import {
   deriveHostStatus,
   memUsedRatio,
@@ -38,9 +43,17 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function HostRow({ host }: { host: HostHealth }) {
+function HostRow({
+  host,
+  canManageWorkspace,
+}: {
+  host: HostHealth;
+  canManageWorkspace: boolean;
+}) {
   const { t } = useT("agents");
   const status = deriveHostStatus(host);
+  const [reapOpen, setReapOpen] = useState(false);
+  const showReapAction = canManageWorkspace && status !== "green";
   return (
     <div
       className={cn(
@@ -65,6 +78,14 @@ function HostRow({ host }: { host: HostHealth }) {
         <Metric label={t(($) => $.active_board.host.memory)} value={pct(memUsedRatio(host))} />
         <Metric label={t(($) => $.active_board.host.swap)} value={pct(swapUsedRatio(host))} />
       </dl>
+      {showReapAction && (
+        <Button variant="outline" size="sm" onClick={() => setReapOpen(true)}>
+          {t(($) => $.active_board.host.reap.action)}
+        </Button>
+      )}
+      {reapOpen && (
+        <ReapDialog daemonId={host.daemon_id} onClose={() => setReapOpen(false)} />
+      )}
     </div>
   );
 }
@@ -79,6 +100,14 @@ function HostRow({ host }: { host: HostHealth }) {
 export function HealthCard({ wsId }: { wsId: string }) {
   const { t } = useT("agents");
   const { data, isLoading } = useQuery(hostHealthOptions(wsId));
+  const user = useAuthStore((s) => s.user);
+  const { data: members = [], isFetched: membersFetched } = useQuery(memberListOptions(wsId));
+  const currentMember = members.find((m) => m.user_id === user?.id) ?? null;
+  // Gated on the member query having settled so the action doesn't flash in
+  // for a member before their role is known (mirrors WorkspaceTab).
+  const canManageWorkspace =
+    membersFetched &&
+    (currentMember?.role === "owner" || currentMember?.role === "admin");
 
   if (isLoading) {
     return <Skeleton className="h-24 w-full rounded-lg" />;
@@ -96,7 +125,7 @@ export function HealthCard({ wsId }: { wsId: string }) {
   return (
     <div className="grid grid-cols-1 gap-4 min-[900px]:grid-cols-2">
       {hosts.map((host) => (
-        <HostRow key={host.daemon_id} host={host} />
+        <HostRow key={host.daemon_id} host={host} canManageWorkspace={canManageWorkspace} />
       ))}
     </div>
   );

@@ -53,6 +53,14 @@ vi.mock("./agent-window", () => ({
     task ? <div role="dialog">window:{task.id}</div> : null,
 }));
 vi.mock("../../common/actor-avatar", () => ({ ActorAvatar: () => <span /> }));
+vi.mock("@multica/core/auth", () => ({ useAuthStore: () => null }));
+vi.mock("@multica/core/workspace/queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@multica/core/workspace/queries")>();
+  return {
+    ...actual,
+    memberListOptions: (wsId: string) => ({ queryKey: ["workspaces", wsId, "members"] }),
+  };
+});
 
 const mockAgents = vi.hoisted(() => ({ current: [] as unknown[] }));
 const mockSnapshot = vi.hoisted(() => ({ current: [] as unknown[] }));
