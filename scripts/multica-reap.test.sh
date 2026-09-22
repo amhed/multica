@@ -78,4 +78,24 @@ got=$(selected "$out")
 [[ "$out" == *"DRY RUN"* ]] || fail "default run should announce DRY RUN" "$out"
 [[ "$out" == *"reaped"* ]] && fail "dry run must not report reaping" "$out"
 
+# --- --json dry run: single valid JSON document ------------------------------
+out=$(bash "$SCRIPT" --json)
+echo "$out" | jq -e . >/dev/null 2>&1 || fail "--json dry run is not valid JSON" "$out"
+[[ "$(echo "$out" | jq -r .mode)" == "dryrun" ]] || fail "--json mode != dryrun" "$out"
+[[ "$(echo "$out" | jq -r .load_after)" == "null" ]] || fail "--json dry run must not set load_after" "$out"
+[[ "$(echo "$out" | jq -r .sigkilled)" == "null" ]] || fail "--json dry run must not set sigkilled" "$out"
+want_count=$(tr ',' '\n' <<<"$want" | wc -l | tr -d ' ')
+[[ "$(echo "$out" | jq -r .count)" == "$want_count" ]] || fail "--json count mismatch, want $want_count" "$out"
+# Full untruncated command for pid 1001 (fixture command is > 90 chars).
+cmd=$(echo "$out" | jq -r '.processes[] | select(.pid==1001) | .command')
+[[ ${#cmd} -gt 90 ]] || fail "--json command was truncated to <=90 chars" "$out"
+[[ "$(echo "$out" | jq -r '.processes[] | select(.pid==1001) | .reason')" == "workspace verification tooling" ]] ||
+	fail "--json wrong reason for pid 1001" "$out"
+
+# --- --json empty result -----------------------------------------------------
+out=$(bash "$SCRIPT" --json --min-age 100000)
+echo "$out" | jq -e . >/dev/null 2>&1 || fail "--json empty is not valid JSON" "$out"
+[[ "$(echo "$out" | jq -r .count)" == "0" ]] || fail "--json empty count != 0" "$out"
+[[ "$(echo "$out" | jq -c .processes)" == "[]" ]] || fail "--json empty processes != []" "$out"
+
 echo "PASS: all multica-reap selection cases"

@@ -11,7 +11,7 @@
 # known-leak process signatures, and is age-gated so live runs are left alone.
 #
 # Usage:
-#   scripts/multica-reap.sh [--apply] [--min-age MIN] [--include-runtime]
+#   scripts/multica-reap.sh [--apply] [--min-age MIN] [--include-runtime] [--json]
 #
 #   (default)          dry run: print what WOULD be reaped and exit 0.
 #   --apply            actually reap (TERM, then KILL after a grace period).
@@ -19,6 +19,8 @@
 #   --include-runtime  also reap hung agent runtimes (grok/opencode `agent`),
 #                      which are OFF by default because they are the work,
 #                      not the leak.
+#   --json             emit a single JSON document instead of the text table,
+#                      for both dry run and --apply.
 #
 # Exit status: 0 on success (including a clean dry run), non-zero on a usage
 # or runtime error. In dry-run mode the exit status does not depend on whether
@@ -28,16 +30,18 @@ set -euo pipefail
 MIN_AGE_MINUTES=30
 APPLY=0
 INCLUDE_RUNTIME=0
+JSON=0
 GRACE_SECONDS=5
 
 usage() {
-	sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	--apply) APPLY=1 ;;
 	--include-runtime) INCLUDE_RUNTIME=1 ;;
+	--json) JSON=1 ;;
 	--min-age)
 		shift
 		[[ ${1:-} =~ ^[0-9]+$ ]] || {
@@ -163,8 +167,39 @@ TARGET_PIDS=("${!REASON_OF[@]}")
 
 load_now() { awk '{print $1" "$2" "$3}' /proc/loadavg 2>/dev/null || echo "n/a"; }
 
+# JSON string escaper: backslash, double-quote, control chars.
+json_escape() {
+	local s=$1
+	s=${s//\\/\\\\}
+	s=${s//\"/\\\"}
+	s=${s//$'\t'/\\t}
+	s=${s//$'\n'/\\n}
+	s=${s//$'\r'/\\r}
+	printf '%s' "$s"
+}
+
+# Emits the single JSON report document. TARGET_PIDS may be empty.
+emit_json() {
+	local mode=$1 load_after=$2 sigkilled=$3
+	local procs="" sep=""
+	for pid in "${TARGET_PIDS[@]}"; do
+		procs+="${sep}{\"pid\":${pid},\"age_seconds\":${ETIMES_OF[$pid]},\"pcpu\":\"$(json_escape "${PCPU_OF[$pid]}")\",\"reason\":\"$(json_escape "${REASON_OF[$pid]}")\",\"command\":\"$(json_escape "${ARGS_OF[$pid]}")\"}"
+		sep=","
+	done
+	printf '{"mode":"%s","min_age_minutes":%s,"include_runtime":%s,"count":%s,"load_before":"%s",%s%s"processes":[%s]}\n' \
+		"$mode" "$MIN_AGE_MINUTES" "$([ "$INCLUDE_RUNTIME" = 1 ] && echo true || echo false)" \
+		"${#TARGET_PIDS[@]}" "$(json_escape "$(load_now)")" \
+		"$([ -n "$load_after" ] && printf '"load_after":"%s",' "$(json_escape "$load_after")" || printf '"load_after":null,')" \
+		"$([ -n "$sigkilled" ] && printf '"sigkilled":%s,' "$sigkilled" || printf '"sigkilled":null,')" \
+		"$procs"
+}
+
 if ((${#TARGET_PIDS[@]} == 0)); then
-	echo "multica-reap: no leaked processes older than ${MIN_AGE_MINUTES}m found."
+	if ((JSON)); then
+		emit_json "$([ "$APPLY" = 1 ] && echo apply || echo dryrun)" "" "$([ "$APPLY" = 1 ] && echo 0)"
+	else
+		echo "multica-reap: no leaked processes older than ${MIN_AGE_MINUTES}m found."
+	fi
 	exit 0
 fi
 
@@ -174,22 +209,28 @@ mapfile -t TARGET_PIDS < <(
 		sort -rn | awk '{print $2}'
 )
 
-printf '%-8s %8s %6s  %-30s %s\n' PID AGE %CPU REASON COMMAND
-for pid in "${TARGET_PIDS[@]}"; do
-	age_min=$((ETIMES_OF["$pid"] / 60))
-	cmd="${ARGS_OF[$pid]}"
-	printf '%-8s %7sm %6s  %-30s %.90s\n' \
-		"$pid" "$age_min" "${PCPU_OF[$pid]}" "${REASON_OF[$pid]}" "$cmd"
-done
-echo
+((JSON)) || {
+	printf '%-8s %8s %6s  %-30s %s\n' PID AGE %CPU REASON COMMAND
+	for pid in "${TARGET_PIDS[@]}"; do
+		age_min=$((ETIMES_OF["$pid"] / 60))
+		cmd="${ARGS_OF[$pid]}"
+		printf '%-8s %7sm %6s  %-30s %.90s\n' \
+			"$pid" "$age_min" "${PCPU_OF[$pid]}" "${REASON_OF[$pid]}" "$cmd"
+	done
+	echo
+}
 
 if ((!APPLY)); then
-	echo "DRY RUN: would reap ${#TARGET_PIDS[@]} process(es). Re-run with --apply to act."
+	if ((JSON)); then
+		emit_json dryrun "" ""
+	else
+		echo "DRY RUN: would reap ${#TARGET_PIDS[@]} process(es). Re-run with --apply to act."
+	fi
 	exit 0
 fi
 
-echo "load before: $(load_now)"
-echo "reaping ${#TARGET_PIDS[@]} process(es)..."
+((JSON)) || echo "load before: $(load_now)"
+((JSON)) || echo "reaping ${#TARGET_PIDS[@]} process(es)..."
 for pid in "${TARGET_PIDS[@]}"; do kill -TERM "$pid" 2>/dev/null || true; done
 sleep "$GRACE_SECONDS"
 survivors=0
@@ -199,5 +240,10 @@ for pid in "${TARGET_PIDS[@]}"; do
 		((survivors++)) || true
 	fi
 done
-echo "reaped ${#TARGET_PIDS[@]} process(es) (${survivors} needed SIGKILL)."
-echo "load after:  $(load_now)"
+
+if ((JSON)); then
+	emit_json apply "$(load_now)" "$survivors"
+else
+	echo "reaped ${#TARGET_PIDS[@]} process(es) (${survivors} needed SIGKILL)."
+	echo "load after:  $(load_now)"
+fi
