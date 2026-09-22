@@ -182,6 +182,15 @@ type RuntimeGoneNotifier interface {
 	NotifyRuntimeGone(runtimeID string)
 }
 
+// DaemonHostReapLookup resolves the daemon-scoped host-health membership and
+// runtime routing the host-reap enqueue endpoint needs. Satisfied by
+// *daemonws.Hub. Optional: when nil, InitiateHostReap falls back to the local
+// DaemonHub, the correct scope for a single-node deployment.
+type DaemonHostReapLookup interface {
+	WorkspaceHostHealth(workspaceID string) []daemonws.HostHealthEntry
+	RuntimeForDaemon(workspaceID, daemonID string) (string, bool)
+}
+
 // RuntimeRecoveryNotifier republishes the daemon:register lifecycle refresh
 // after a heartbeat actually flipped an offline runtime row back online
 // (sweeper-race fallback, batch-receipt reconciliation). Recovery paths already
@@ -235,6 +244,12 @@ type Handler struct {
 	// requestDaemonPendingWork falls back to the local DaemonHub, which is the
 	// correct delivery scope for a single-node deployment.
 	DaemonPendingWork DaemonPendingWorkNotifier
+	// DaemonHostReap resolves host-health membership and runtime routing for
+	// InitiateHostReap. Optional: when nil, it falls back to DaemonHub.
+	DaemonHostReap DaemonHostReapLookup
+	// HostReapStore backs the host-reap enqueue/claim/report flow (see
+	// host_reap_store.go).
+	HostReapStore HostReapStore
 	// ModelCatalogCache serves the last known good model list for a runtime so
 	// the picker can render without waiting for a daemon round trip
 	// (stale-while-revalidate, MUL-5444). Nil-safe: every call site treats a nil
@@ -490,6 +505,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		ModelCatalogCache:            NewInMemoryModelCatalogCache(),
 		LocalSkillListStore:          NewInMemoryLocalSkillListStore(),
 		LocalSkillImportStore:        NewInMemoryLocalSkillImportStore(),
+		HostReapStore:                NewInMemoryHostReapStore(),
 		LivenessStore:                NewNoopLivenessStore(),
 		HeartbeatScheduler:           NewPassthroughHeartbeatScheduler(queries),
 		Storage:                      store,

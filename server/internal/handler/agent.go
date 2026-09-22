@@ -3039,3 +3039,90 @@ func (h *Handler) GetWorkspaceHostHealth(w http.ResponseWriter, r *http.Request)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
+
+// hostReapHub returns the DaemonHostReapLookup to use, preferring the
+// optional test/multi-node override and falling back to the local DaemonHub.
+func (h *Handler) hostReapHub() DaemonHostReapLookup {
+	if h.DaemonHostReap != nil {
+		return h.DaemonHostReap
+	}
+	if h.DaemonHub != nil {
+		return h.DaemonHub
+	}
+	return nil
+}
+
+// daemonInWorkspaceHostHealth reports whether daemonID currently appears in
+// workspaceID's host health, i.e. is visible on the Active board's host-health
+// card. Reuses the same source GetWorkspaceHostHealth reads.
+func (h *Handler) daemonInWorkspaceHostHealth(workspaceID, daemonID string) bool {
+	hub := h.hostReapHub()
+	if hub == nil {
+		return false
+	}
+	for _, e := range hub.WorkspaceHostHealth(workspaceID) {
+		if e.DaemonID == daemonID {
+			return true
+		}
+	}
+	return false
+}
+
+// InitiateHostReap enqueues a host-reap request (dry-run preview or apply) for
+// the daemon behind daemonId and asks it to run the reaper on its next
+// heartbeat. Admin/owner only; the daemon must currently serve this workspace.
+func (h *Handler) InitiateHostReap(w http.ResponseWriter, r *http.Request) {
+	workspaceID := h.resolveWorkspaceID(r)
+	member, ok := h.requireWorkspaceRole(w, r, workspaceID, "workspace not found", "owner", "admin")
+	if !ok {
+		return
+	}
+	daemonUUID, ok := parseUUIDOrBadRequest(w, chi.URLParam(r, "daemonId"), "daemon id")
+	if !ok {
+		return
+	}
+	daemonID := uuidToString(daemonUUID)
+
+	// Confirm the daemon currently serves this workspace (visible on the card).
+	if !h.daemonInWorkspaceHostHealth(workspaceID, daemonID) {
+		writeError(w, http.StatusNotFound, "daemon not found")
+		return
+	}
+
+	var body struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	var mode HostReapMode
+	switch body.Mode {
+	case string(HostReapDryRun):
+		mode = HostReapDryRun
+	case string(HostReapApply):
+		mode = HostReapApply
+	default:
+		writeError(w, http.StatusBadRequest, "mode must be dryrun or apply")
+		return
+	}
+
+	hub := h.hostReapHub()
+	if hub == nil {
+		writeError(w, http.StatusServiceUnavailable, "daemon offline")
+		return
+	}
+	runtimeID, ok := hub.RuntimeForDaemon(workspaceID, daemonID)
+	if !ok {
+		writeError(w, http.StatusServiceUnavailable, "daemon offline")
+		return
+	}
+
+	req, err := h.HostReapStore.Create(r.Context(), daemonID, workspaceID, runtimeID, mode, uuidToString(member.UserID))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to enqueue: "+err.Error())
+		return
+	}
+	h.requestDaemonPendingWork(runtimeID, protocol.PendingWorkKindHostReap)
+	writeJSON(w, http.StatusOK, map[string]string{"request_id": req.ID})
+}

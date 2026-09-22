@@ -2257,6 +2257,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// Machine-wide health (load/memory/swap) of the daemon host(s)
 			// serving this workspace, for the Active board's health card.
 			r.Get("/api/host-health", h.GetWorkspaceHostHealth)
+			r.Post("/api/host-health/{daemonId}/reap", h.InitiateHostReap)
 			r.Get("/api/issue-wakeup-summaries", h.ListWorkspaceWakeupSummaries)
 			r.Get("/api/issue-wakeups", h.ListWorkspaceWakeups)
 
