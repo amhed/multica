@@ -45,17 +45,26 @@ export function ReapDialog({
   const runPreview = () => {
     setPhase("loading");
     setPreview(null);
-    resolveHostReap(daemonId, "dryrun").then((request) => {
-      setPreview(request);
-      // "failed" means the daemon responded but the scan itself errored;
-      // "timeout" (and any other non-terminal status) means the client gave
-      // up waiting — distinct enough to need distinct copy (see
-      // reap.failed_* vs reap.offline_*), since a failed run is worth
-      // retrying differently than a request that never got an answer.
-      if (request.status === "completed") setPhase("preview");
-      else if (request.status === "failed") setPhase("failed");
-      else setPhase("timeout");
-    });
+    resolveHostReap(daemonId, "dryrun")
+      .then((request) => {
+        setPreview(request);
+        // "failed" means the daemon responded but the scan itself errored;
+        // "timeout" (and any other non-terminal status) means the client gave
+        // up waiting — distinct enough to need distinct copy (see
+        // reap.failed_* vs reap.offline_*), since a failed run is worth
+        // retrying differently than a request that never got an answer.
+        if (request.status === "completed") setPhase("preview");
+        else if (request.status === "failed") setPhase("failed");
+        else setPhase("timeout");
+      })
+      .catch(() => {
+        // The initiate/poll requests themselves throw on a non-2xx response
+        // or a network error (unlike resolveHostReap's own internal client
+        // give-up, which resolves with status "timeout") — treat it the
+        // same as a client timeout: the daemon is unreachable, nothing ran.
+        setPreview(null);
+        setPhase("timeout");
+      });
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per mount, daemonId is stable for the dialog's lifetime
@@ -63,7 +72,17 @@ export function ReapDialog({
 
   const handleConfirm = async () => {
     setPhase("applying");
-    const applied = await resolveHostReap(daemonId, "apply");
+    let applied: HostReapRequest;
+    try {
+      applied = await resolveHostReap(daemonId, "apply");
+    } catch {
+      // Same as the preview catch: the request itself failed, not the reap
+      // run. Never leave phase "applying" here, or Cancel/Confirm/backdrop
+      // dismissal all stay disabled and the dialog can't be closed.
+      toast.error(t(($) => $.active_board.host.reap.apply_error_toast_generic));
+      onClose();
+      return;
+    }
     if (applied.status === "completed" && applied.result) {
       toast.success(
         t(($) => $.active_board.host.reap.success_toast, {

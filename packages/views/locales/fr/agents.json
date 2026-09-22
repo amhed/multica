@@ -1002,7 +1002,6 @@
         "reselect_note": "La confirmation resélectionne les processus au moment de l'exécution ; la liste ci-dessous peut changer avant.",
         "count_one": "{{count}} processus trouvé",
         "count_other": "{{count}} processus trouvés",
-        "empty": "Aucun processus orphelin trouvé.",
         "column_pid": "PID",
         "column_age": "Âge",
         "column_cpu": "CPU",

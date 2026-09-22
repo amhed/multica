@@ -216,4 +216,50 @@ describe("ReapDialog", () => {
       "Reap failed. No confirmation was received from the host.",
     );
   });
+
+  it("reaches a closeable state (not stuck on loading) when the preview request itself throws", async () => {
+    initiateHostReap.mockRejectedValue(new Error("503"));
+
+    renderDialog();
+
+    expect(await screen.findByText("Daemon did not respond")).toBeTruthy();
+    expect(screen.queryByText("Scanning host for leaked processes…")).toBeNull();
+    expect(screen.getByRole("button", { name: "Cancel" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("toasts an error and closes (never stays stuck on applying) when the apply request itself throws", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    initiateHostReap.mockResolvedValue({ request_id: "r1" });
+    getHostReapResult.mockResolvedValueOnce(
+      request({
+        status: "completed",
+        result: {
+          mode: "dryrun",
+          count: 1,
+          load_before: "1.0 1.0 1.0",
+          load_after: null,
+          sigkilled: null,
+          processes: [
+            { pid: 123, age_seconds: 900, pcpu: "12.5", reason: "orphaned", command: "node worker.js" },
+          ],
+        },
+      }),
+    );
+
+    renderDialog(onClose);
+    await screen.findByText("1 process found");
+
+    initiateHostReap.mockRejectedValueOnce(new Error("503"));
+
+    await user.click(screen.getByRole("button", { name: "Reap now" }));
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith(
+        "Reap failed. The daemon reported an error running the reaper.",
+      ),
+    );
+    expect(onClose).toHaveBeenCalled();
+  });
 });

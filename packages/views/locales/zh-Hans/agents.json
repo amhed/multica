@@ -979,7 +979,6 @@
         "preview_pending": "正在扫描主机上的残留进程…",
         "reselect_note": "确认操作会重新筛选进程,执行时下方列表可能已发生变化。",
         "count_other": "找到 {{count}} 个进程",
-        "empty": "未发现残留进程。",
         "column_pid": "PID",
         "column_age": "存活时间",
         "column_cpu": "CPU",

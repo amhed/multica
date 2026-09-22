@@ -979,7 +979,6 @@
         "preview_pending": "ホスト上の残留プロセスをスキャン中…",
         "reselect_note": "確定すると実行時に再度プロセスを選び直します。以下の一覧は実行前に変わる場合があります。",
         "count_other": "{{count}} 件のプロセスが見つかりました",
-        "empty": "残留プロセスは見つかりませんでした。",
         "column_pid": "PID",
         "column_age": "経過時間",
         "column_cpu": "CPU",

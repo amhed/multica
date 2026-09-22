@@ -1002,7 +1002,6 @@
         "reselect_note": "Confirming re-selects processes fresh; the list below may change before it runs.",
         "count_one": "{{count}} process found",
         "count_other": "{{count}} processes found",
-        "empty": "No leaked processes found.",
         "column_pid": "PID",
         "column_age": "Age",
         "column_cpu": "CPU",
