@@ -156,6 +156,7 @@ const (
 	PendingWorkKindLocalSkills      = "local_skills"
 	PendingWorkKindLocalSkillImport = "local_skill_import"
 	PendingWorkKindTaskSteer        = "task_steer"
+	PendingWorkKindHostReap         = "host_reap"
 )
 
 // PendingWorkPayload is sent from server to daemon as a wakeup hint when a
@@ -437,6 +438,7 @@ type DaemonHeartbeatAckPayload struct {
 	// that don't know this field silently ignore it (standard JSON behavior)
 	// and fall back to the singular PendingLocalSkillImport above.
 	PendingLocalSkillImports []DaemonHeartbeatPendingLocalSkillImport `json:"pending_local_skill_imports,omitempty"`
+	PendingReap              *DaemonHeartbeatPendingReap              `json:"pending_reap,omitempty"`
 }
 
 // HeartbeatStatusRuntimeGone is the ack Status used when the runtime row no
@@ -454,6 +456,13 @@ type DaemonHeartbeatPendingUpdate struct {
 // enumerate the runtime's supported models.
 type DaemonHeartbeatPendingModelList struct {
 	ID string `json:"id"`
+}
+
+// DaemonHeartbeatPendingReap tells the daemon a host-reap request is queued.
+// Mode is "dryrun" or "apply".
+type DaemonHeartbeatPendingReap struct {
+	ID   string `json:"id"`
+	Mode string `json:"mode"`
 }
 
 // DaemonHeartbeatPendingLocalSkills describes a request for the runtime's
