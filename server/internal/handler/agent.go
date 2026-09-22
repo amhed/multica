@@ -3152,3 +3152,56 @@ func (h *Handler) GetHostReapRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, req)
 }
+
+// ReportHostReapResult receives the reap result from the daemon.
+func (h *Handler) ReportHostReapResult(w http.ResponseWriter, r *http.Request) {
+	runtimeID := chi.URLParam(r, "runtimeId")
+
+	rt, ok := h.requireDaemonRuntimeAccess(w, r, runtimeID)
+	if !ok {
+		return
+	}
+
+	requestID := chi.URLParam(r, "requestId")
+
+	// Fetch first so we can ignore stale reports for already-terminal
+	// requests (e.g. the heartbeat response that triggered the daemon run
+	// was a retry, and the original report already landed).
+	req, err := h.HostReapStore.Get(r.Context(), requestID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load request: "+err.Error())
+		return
+	}
+	if req == nil || req.RuntimeID != uuidToString(rt.ID) {
+		writeError(w, http.StatusNotFound, "request not found")
+		return
+	}
+	if req.Status == HostReapCompleted || req.Status == HostReapFailed || req.Status == HostReapTimeout {
+		slog.Debug("ignoring stale host reap report", "runtime_id", runtimeID, "request_id", requestID, "status", req.Status)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+
+	var body struct {
+		Status string          `json:"status"` // "completed" or "failed"
+		Result json.RawMessage `json:"result"`
+		Error  string          `json:"error"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if body.Status == "failed" {
+		if err := h.HostReapStore.Fail(r.Context(), requestID, body.Error); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to record failure: "+err.Error())
+			return
+		}
+	} else {
+		if err := h.HostReapStore.Complete(r.Context(), requestID, body.Result); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to record result: "+err.Error())
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}

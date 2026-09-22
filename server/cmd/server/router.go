@@ -1479,6 +1479,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		r.Get("/runtimes/{runtimeId}/tasks/pending", h.ListPendingTasksByRuntime)
 		r.Post("/runtimes/{runtimeId}/update/{updateId}/result", h.ReportUpdateResult)
 		r.Post("/runtimes/{runtimeId}/models/{requestId}/result", h.ReportModelListResult)
+		r.Post("/runtimes/{runtimeId}/reap/{requestId}/result", h.ReportHostReapResult)
 		r.Post("/runtimes/{runtimeId}/local-skills/{requestId}/result", h.ReportLocalSkillListResult)
 		r.Post("/runtimes/{runtimeId}/local-skills/import/{requestId}/result", h.ReportLocalSkillImportResult)
 
@@ -2258,7 +2259,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// serving this workspace, for the Active board's health card.
 			r.Get("/api/host-health", h.GetWorkspaceHostHealth)
 			r.Post("/api/host-health/{daemonId}/reap", h.InitiateHostReap)
-r.Get("/api/host-health/{daemonId}/reap/{requestId}", h.GetHostReapRequest)
+			r.Get("/api/host-health/{daemonId}/reap/{requestId}", h.GetHostReapRequest)
 			r.Get("/api/issue-wakeup-summaries", h.ListWorkspaceWakeupSummaries)
 			r.Get("/api/issue-wakeups", h.ListWorkspaceWakeups)
 

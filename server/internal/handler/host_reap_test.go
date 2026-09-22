@@ -245,6 +245,131 @@ func TestGetHostReapRequestRequiresAdmin(t *testing.T) {
 	testutil.Call(t, h.GetHostReapRequest, req).Want(http.StatusForbidden)
 }
 
+// TestHeartbeatClaimsHostReap pins the heartbeat claim wiring: a pending
+// host-reap request for the heartbeating runtime is popped and surfaced on
+// the ack, and the row transitions to running.
+func TestHeartbeatClaimsHostReap(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
+	daemonID := "heartbeat-claims-host-reap-daemon"
+
+	h := *testHandler
+	h.HostReapStore = NewInMemoryHostReapStore()
+
+	stored, err := h.HostReapStore.Create(context.Background(), daemonID, testWorkspaceID, runtimeID, HostReapApply, testUserID)
+	if err != nil {
+		t.Fatalf("failed to seed pending request: %v", err)
+	}
+
+	req := newDaemonTokenRequest(http.MethodPost, "/api/daemon/heartbeat", map[string]any{
+		"runtime_id": runtimeID,
+	}, testWorkspaceID, daemonID)
+
+	var out struct {
+		PendingReap *struct {
+			ID   string `json:"id"`
+			Mode string `json:"mode"`
+		} `json:"pending_reap"`
+	}
+	testutil.Call(t, h.DaemonHeartbeat, req).Want(http.StatusOK).JSON(&out)
+
+	if out.PendingReap == nil {
+		t.Fatal("expected pending_reap on ack, got nil")
+	}
+	if out.PendingReap.ID != stored.ID {
+		t.Fatalf("pending_reap.id = %q, want %q", out.PendingReap.ID, stored.ID)
+	}
+	if out.PendingReap.Mode != string(HostReapApply) {
+		t.Fatalf("pending_reap.mode = %q, want %q", out.PendingReap.Mode, HostReapApply)
+	}
+
+	row, err := h.HostReapStore.Get(context.Background(), stored.ID)
+	if err != nil || row == nil {
+		t.Fatalf("expected stored row: %v", err)
+	}
+	if row.Status != HostReapRunning {
+		t.Fatalf("expected status running after claim, got %q", row.Status)
+	}
+}
+
+func TestReportHostReapResultCompletes(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
+	daemonID := "report-host-reap-completes-daemon"
+
+	h := *testHandler
+	h.HostReapStore = NewInMemoryHostReapStore()
+
+	stored, err := h.HostReapStore.Create(context.Background(), daemonID, testWorkspaceID, runtimeID, HostReapDryRun, testUserID)
+	if err != nil {
+		t.Fatalf("failed to seed pending request: %v", err)
+	}
+	if _, err := h.HostReapStore.PopPending(context.Background(), runtimeID); err != nil {
+		t.Fatalf("failed to claim pending request: %v", err)
+	}
+
+	req := withURLParams(newDaemonTokenRequest(http.MethodPost,
+		"/api/daemon/runtimes/"+runtimeID+"/reap/"+stored.ID+"/result",
+		map[string]any{"status": "completed", "result": map[string]int{"killed": 3}},
+		testWorkspaceID, daemonID),
+		"runtimeId", runtimeID, "requestId", stored.ID)
+
+	testutil.Call(t, h.ReportHostReapResult, req).Want(http.StatusOK)
+
+	row, err := h.HostReapStore.Get(context.Background(), stored.ID)
+	if err != nil || row == nil {
+		t.Fatalf("expected stored row: %v", err)
+	}
+	if row.Status != HostReapCompleted {
+		t.Fatalf("expected status completed, got %q", row.Status)
+	}
+	if string(row.Result) != `{"killed":3}` {
+		t.Fatalf("unexpected result: %s", row.Result)
+	}
+}
+
+func TestReportHostReapResultStaleIgnored(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
+	daemonID := "report-host-reap-stale-daemon"
+
+	h := *testHandler
+	h.HostReapStore = NewInMemoryHostReapStore()
+
+	stored, err := h.HostReapStore.Create(context.Background(), daemonID, testWorkspaceID, runtimeID, HostReapDryRun, testUserID)
+	if err != nil {
+		t.Fatalf("failed to seed pending request: %v", err)
+	}
+	if err := h.HostReapStore.Complete(context.Background(), stored.ID, json.RawMessage(`{"killed":1}`)); err != nil {
+		t.Fatalf("failed to complete request: %v", err)
+	}
+
+	req := withURLParams(newDaemonTokenRequest(http.MethodPost,
+		"/api/daemon/runtimes/"+runtimeID+"/reap/"+stored.ID+"/result",
+		map[string]any{"status": "completed", "result": map[string]int{"killed": 99}},
+		testWorkspaceID, daemonID),
+		"runtimeId", runtimeID, "requestId", stored.ID)
+
+	testutil.Call(t, h.ReportHostReapResult, req).Want(http.StatusOK)
+
+	row, err := h.HostReapStore.Get(context.Background(), stored.ID)
+	if err != nil || row == nil {
+		t.Fatalf("expected stored row: %v", err)
+	}
+	if row.Status != HostReapCompleted {
+		t.Fatalf("expected status to remain completed, got %q", row.Status)
+	}
+	if string(row.Result) != `{"killed":1}` {
+		t.Fatalf("expected result to remain unchanged, got: %s", row.Result)
+	}
+}
+
 func TestInitiateHostReapDaemonOffline(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")

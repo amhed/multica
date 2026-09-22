@@ -1200,6 +1200,9 @@ func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if len(ack.PendingLocalSkillImports) > 0 {
 		resp["pending_local_skill_imports"] = ack.PendingLocalSkillImports
 	}
+	if ack.PendingReap != nil {
+		resp["pending_reap"] = ack.PendingReap
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -1512,6 +1515,15 @@ func (h *Handler) processHeartbeat(ctx context.Context, runtimeID string, suppor
 			slog.Warn("local skill import HasPending timed out", "runtime_id", runtimeID, "elapsed_ms", m.ProbeImportMs)
 		} else {
 			slog.Warn("local skill import HasPending failed", "error", probeErr, "runtime_id", runtimeID)
+		}
+	}
+
+	// Probe then claim the host-reap queue. Same hot-path gating as the
+	// queues above: HasPending is a cheap check, PopPending only runs when
+	// there is actually work to claim.
+	if has, _ := h.HostReapStore.HasPending(ctx, runtimeID); has {
+		if req, _ := h.HostReapStore.PopPending(ctx, runtimeID); req != nil {
+			ack.PendingReap = &protocol.DaemonHeartbeatPendingReap{ID: req.ID, Mode: string(req.Mode)}
 		}
 	}
 
