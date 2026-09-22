@@ -4573,13 +4573,14 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 		}
 	}
 	d.taskSteerServerSupported.Store(steerSupported)
-	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil {
+	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil || resp.PendingReap != nil {
 		d.logger.Debug("heartbeat: pending actions",
 			"runtime_id", runtimeID,
 			"update", resp.PendingUpdate != nil,
 			"model_list", resp.PendingModelList != nil,
 			"local_skills", resp.PendingLocalSkills != nil,
 			"local_skill_import", resp.PendingLocalSkillImport != nil,
+			"reap", resp.PendingReap != nil,
 		)
 	}
 	if resp.PendingUpdate != nil {
@@ -4588,6 +4589,11 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	if resp.PendingModelList != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
 			go d.handleModelList(ctx, *rt, resp.PendingModelList.ID)
+		}
+	}
+	if resp.PendingReap != nil {
+		if rt := d.findRuntime(runtimeID); rt != nil {
+			go d.handleHostReap(ctx, *rt, resp.PendingReap.ID, resp.PendingReap.Mode)
 		}
 	}
 	if resp.PendingLocalSkills != nil {

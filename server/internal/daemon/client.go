@@ -700,6 +700,11 @@ func (c *Client) ReportModelListResult(ctx context.Context, runtimeID, requestID
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/models/%s/result", runtimeID, requestID), result, nil)
 }
 
+// ReportHostReapResult sends the host-reap result back to the server.
+func (c *Client) ReportHostReapResult(ctx context.Context, runtimeID, requestID string, body map[string]any) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/reap/%s/result", runtimeID, requestID), body, nil)
+}
+
 // ReportLocalSkillListResult sends the runtime-local-skill inventory back to the server.
 func (c *Client) ReportLocalSkillListResult(ctx context.Context, runtimeID, requestID string, result map[string]any) error {
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/local-skills/%s/result", runtimeID, requestID), result, nil)
