@@ -260,6 +260,22 @@ func (c *client) runtimeCount() int {
 	return len(c.runtimes)
 }
 
+// anyLiveRuntimeID returns a runtime id currently tracked as live on this
+// connection (c.runtimes, updated by heartbeats), falling back to the first
+// authorized runtime id from identity if the live map is empty.
+func (c *client) anyLiveRuntimeID() (string, bool) {
+	c.runtimeMu.RLock()
+	for runtimeID := range c.runtimes {
+		c.runtimeMu.RUnlock()
+		return runtimeID, true
+	}
+	c.runtimeMu.RUnlock()
+	if len(c.identity.RuntimeIDs) > 0 {
+		return c.identity.RuntimeIDs[0], true
+	}
+	return "", false
+}
+
 // markRuntimeGoneSeen deduplicates a runtime invalidation at the Hub level.
 // Runtime invalidation removes the client from byRuntime, so the ordinary
 // per-client event cache is no longer reachable when the Redis loopback of a
@@ -880,6 +896,24 @@ func (h *Hub) WorkspaceHostHealth(workspaceID string) []HostHealthEntry {
 		out = append(out, HostHealthEntry{DaemonID: id, Host: *host})
 	}
 	return out
+}
+
+// RuntimeForDaemon returns a live runtime id belonging to daemonID within
+// workspaceID, or ("", false) if that daemon has no live runtime there. Used
+// to route a daemon-scoped request (host reap) through the runtime-keyed
+// pending-work path.
+func (h *Hub) RuntimeForDaemon(workspaceID, daemonID string) (string, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for c := range h.byWorkspace[workspaceID] {
+		if c.identity.DaemonID != daemonID {
+			continue
+		}
+		if rid, ok := c.anyLiveRuntimeID(); ok {
+			return rid, true
+		}
+	}
+	return "", false
 }
 
 func (h *Hub) register(c *client) {

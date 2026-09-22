@@ -15,6 +15,24 @@ import (
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
+func TestRuntimeForDaemon(t *testing.T) {
+	h := &Hub{byWorkspace: map[string]map[*client]bool{}}
+
+	c := &client{
+		identity: ClientIdentity{DaemonID: "d1"},
+		runtimes: map[string]struct{}{"rt1": {}},
+	}
+	h.byWorkspace["ws1"] = map[*client]bool{c: true}
+
+	rt, ok := h.RuntimeForDaemon("ws1", "d1")
+	if !ok || rt != "rt1" {
+		t.Fatalf("RuntimeForDaemon = %q,%v; want rt1,true", rt, ok)
+	}
+	if _, ok := h.RuntimeForDaemon("ws1", "nope"); ok {
+		t.Fatal("unknown daemon should return ok=false")
+	}
+}
+
 func TestNotifyTaskAvailable(t *testing.T) {
 	M.Reset()
 	defer M.Reset()
