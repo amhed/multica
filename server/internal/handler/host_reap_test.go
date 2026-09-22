@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"sync"
 	"testing"
@@ -141,6 +142,107 @@ func TestInitiateHostReapEnqueues(t *testing.T) {
 	if hub.calls[0].runtimeID != "rt1" || hub.calls[0].kind != "host_reap" {
 		t.Fatalf("unexpected pending-work hint: %+v", hub.calls[0])
 	}
+}
+
+func TestGetHostReapRequest(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	daemonID := "55555555-5555-5555-5555-555555555555"
+
+	hub := &fakeHostReapHub{
+		hosts: map[string][]daemonws.HostHealthEntry{
+			testWorkspaceID: {{DaemonID: daemonID}},
+		},
+		runtime: "rt1",
+		online:  true,
+	}
+	h := hostReapTestHandler(t, hub)
+
+	stored, err := h.HostReapStore.Create(context.Background(), daemonID, testWorkspaceID, "rt1", HostReapDryRun, testUserID)
+	if err != nil {
+		t.Fatalf("failed to seed pending request: %v", err)
+	}
+
+	req := withURLParams(newRequest(http.MethodGet, "/api/host-health/"+daemonID+"/reap/"+stored.ID, nil),
+		"daemonId", daemonID, "requestId", stored.ID)
+
+	var out HostReapRequest
+	testutil.Call(t, h.GetHostReapRequest, req).Want(http.StatusOK).JSON(&out)
+	if out.Status != HostReapPending {
+		t.Fatalf("expected status pending, got %q", out.Status)
+	}
+
+	if err := h.HostReapStore.Complete(context.Background(), stored.ID, json.RawMessage(`{"killed":2}`)); err != nil {
+		t.Fatalf("failed to complete request: %v", err)
+	}
+
+	req = withURLParams(newRequest(http.MethodGet, "/api/host-health/"+daemonID+"/reap/"+stored.ID, nil),
+		"daemonId", daemonID, "requestId", stored.ID)
+
+	var out2 HostReapRequest
+	testutil.Call(t, h.GetHostReapRequest, req).Want(http.StatusOK).JSON(&out2)
+	if out2.Status != HostReapCompleted {
+		t.Fatalf("expected status completed, got %q", out2.Status)
+	}
+	if string(out2.Result) != `{"killed":2}` {
+		t.Fatalf("unexpected result: %s", out2.Result)
+	}
+}
+
+func TestGetHostReapRequestNotFoundForWrongDaemon(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	daemonID := "66666666-6666-6666-6666-666666666666"
+	otherDaemonID := "77777777-7777-7777-7777-777777777777"
+
+	hub := &fakeHostReapHub{
+		hosts: map[string][]daemonws.HostHealthEntry{
+			testWorkspaceID: {{DaemonID: daemonID}, {DaemonID: otherDaemonID}},
+		},
+		runtime: "rt1",
+		online:  true,
+	}
+	h := hostReapTestHandler(t, hub)
+
+	stored, err := h.HostReapStore.Create(context.Background(), daemonID, testWorkspaceID, "rt1", HostReapDryRun, testUserID)
+	if err != nil {
+		t.Fatalf("failed to seed pending request: %v", err)
+	}
+
+	req := withURLParams(newRequest(http.MethodGet, "/api/host-health/"+otherDaemonID+"/reap/"+stored.ID, nil),
+		"daemonId", otherDaemonID, "requestId", stored.ID)
+
+	testutil.Call(t, h.GetHostReapRequest, req).Want(http.StatusNotFound)
+}
+
+func TestGetHostReapRequestRequiresAdmin(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	daemonID := "88888888-8888-8888-8888-888888888888"
+	memberUserID := dbfx.User(t, "Reap Get Non-Admin", "reap-get-non-admin@multica.ai")
+	dbfx.Member(t, testWorkspaceID, memberUserID, "member")
+
+	hub := &fakeHostReapHub{
+		hosts: map[string][]daemonws.HostHealthEntry{
+			testWorkspaceID: {{DaemonID: daemonID}},
+		},
+		runtime: "rt1",
+		online:  true,
+	}
+	h := hostReapTestHandler(t, hub)
+
+	stored, err := h.HostReapStore.Create(context.Background(), daemonID, testWorkspaceID, "rt1", HostReapDryRun, testUserID)
+	if err != nil {
+		t.Fatalf("failed to seed pending request: %v", err)
+	}
+
+	req := withURLParams(newRequestAs(memberUserID, http.MethodGet, "/api/host-health/"+daemonID+"/reap/"+stored.ID, nil),
+		"daemonId", daemonID, "requestId", stored.ID)
+
+	testutil.Call(t, h.GetHostReapRequest, req).Want(http.StatusForbidden)
 }
 
 func TestInitiateHostReapDaemonOffline(t *testing.T) {

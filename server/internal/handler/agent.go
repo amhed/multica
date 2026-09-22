@@ -3126,3 +3126,29 @@ func (h *Handler) InitiateHostReap(w http.ResponseWriter, r *http.Request) {
 	h.requestDaemonPendingWork(runtimeID, protocol.PendingWorkKindHostReap)
 	writeJSON(w, http.StatusOK, map[string]string{"request_id": req.ID})
 }
+
+// GetHostReapRequest returns the status/result of a previously enqueued
+// host-reap request. Admin/owner only; the request must belong to the named
+// daemon within this workspace.
+func (h *Handler) GetHostReapRequest(w http.ResponseWriter, r *http.Request) {
+	workspaceID := h.resolveWorkspaceID(r)
+	if _, ok := h.requireWorkspaceRole(w, r, workspaceID, "workspace not found", "owner", "admin"); !ok {
+		return
+	}
+	daemonUUID, ok := parseUUIDOrBadRequest(w, chi.URLParam(r, "daemonId"), "daemon id")
+	if !ok {
+		return
+	}
+	daemonID := uuidToString(daemonUUID)
+
+	req, err := h.HostReapStore.Get(r.Context(), chi.URLParam(r, "requestId"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load request: "+err.Error())
+		return
+	}
+	if req == nil || req.DaemonID != daemonID || req.WorkspaceID != workspaceID {
+		writeError(w, http.StatusNotFound, "request not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, req)
+}
