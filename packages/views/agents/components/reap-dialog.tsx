@@ -23,7 +23,7 @@ import { resolveHostReap } from "@multica/core/agents";
 import type { HostReapRequest } from "@multica/core/types";
 import { useT } from "../../i18n";
 
-type Phase = "loading" | "preview" | "applying" | "unavailable";
+type Phase = "loading" | "preview" | "applying" | "timeout" | "failed";
 
 /**
  * Preview -> confirm dialog for the admin-triggered leaked-process reaper.
@@ -47,7 +47,14 @@ export function ReapDialog({
     setPreview(null);
     resolveHostReap(daemonId, "dryrun").then((request) => {
       setPreview(request);
-      setPhase(request.status === "completed" ? "preview" : "unavailable");
+      // "failed" means the daemon responded but the scan itself errored;
+      // "timeout" (and any other non-terminal status) means the client gave
+      // up waiting — distinct enough to need distinct copy (see
+      // reap.failed_* vs reap.offline_*), since a failed run is worth
+      // retrying differently than a request that never got an answer.
+      if (request.status === "completed") setPhase("preview");
+      else if (request.status === "failed") setPhase("failed");
+      else setPhase("timeout");
     });
   };
 
@@ -57,19 +64,28 @@ export function ReapDialog({
   const handleConfirm = async () => {
     setPhase("applying");
     const applied = await resolveHostReap(daemonId, "apply");
-    if (applied.status !== "completed" || !applied.result) {
-      toast.error(t(($) => $.active_board.host.reap.apply_failed_toast));
+    if (applied.status === "completed" && applied.result) {
+      toast.success(
+        t(($) => $.active_board.host.reap.success_toast, {
+          count: applied.result.count,
+          sigkilled: applied.result.sigkilled ?? 0,
+          loadBefore: applied.result.load_before,
+          loadAfter: applied.result.load_after ?? applied.result.load_before,
+        }),
+      );
       onClose();
       return;
     }
-    toast.success(
-      t(($) => $.active_board.host.reap.success_toast, {
-        count: applied.result.count,
-        sigkilled: applied.result.sigkilled ?? 0,
-        loadBefore: applied.result.load_before,
-        loadAfter: applied.result.load_after ?? applied.result.load_before,
-      }),
-    );
+    if (applied.status === "failed") {
+      toast.error(
+        applied.error
+          ? t(($) => $.active_board.host.reap.apply_error_toast, { error: applied.error })
+          : t(($) => $.active_board.host.reap.apply_error_toast_generic),
+      );
+      onClose();
+      return;
+    }
+    toast.error(t(($) => $.active_board.host.reap.apply_timeout_toast));
     onClose();
   };
 
@@ -86,9 +102,11 @@ export function ReapDialog({
         <DialogHeader>
           <DialogTitle>{t(($) => $.active_board.host.reap.dialog_title)}</DialogTitle>
           <DialogDescription>
-            {phase === "unavailable"
+            {phase === "timeout"
               ? t(($) => $.active_board.host.reap.offline_description)
-              : t(($) => $.active_board.host.reap.reselect_note)}
+              : phase === "failed"
+                ? t(($) => $.active_board.host.reap.failed_description)
+                : t(($) => $.active_board.host.reap.reselect_note)}
           </DialogDescription>
         </DialogHeader>
 
@@ -98,9 +116,17 @@ export function ReapDialog({
           </p>
         )}
 
-        {phase === "unavailable" && (
+        {phase === "timeout" && (
           <p className="text-caption text-muted-foreground">
             {t(($) => $.active_board.host.reap.offline_title)}
+          </p>
+        )}
+
+        {phase === "failed" && (
+          <p className="text-caption text-muted-foreground">
+            {preview?.error
+              ? t(($) => $.active_board.host.reap.failed_title_detail, { error: preview.error })
+              : t(($) => $.active_board.host.reap.failed_title)}
           </p>
         )}
 
@@ -146,7 +172,7 @@ export function ReapDialog({
         )}
 
         <DialogFooter>
-          {phase === "unavailable" ? (
+          {phase === "timeout" || phase === "failed" ? (
             <>
               <Button variant="outline" onClick={onClose}>
                 {t(($) => $.active_board.host.reap.cancel)}

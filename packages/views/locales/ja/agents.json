@@ -990,9 +990,14 @@
         "confirm_button": "今すぐ掃除",
         "confirm_pending": "掃除中…",
         "success_toast": "{{count}} 件のプロセスを掃除しました({{sigkilled}} 件は SIGKILL が必要)。負荷 {{loadBefore}} → {{loadAfter}}。",
-        "apply_failed_toast": "掃除に失敗しました。ホストからの確認を受信できませんでした。",
+        "apply_timeout_toast": "掃除に失敗しました。ホストからの確認を受信できませんでした。",
+        "apply_error_toast": "掃除に失敗しました: {{error}}",
+        "apply_error_toast_generic": "掃除に失敗しました。デーモンが実行中にエラーを報告しました。",
         "offline_title": "デーモンが応答しませんでした",
         "offline_description": "ホストが時間内に応答しませんでした。プロセスは終了されていません。",
+        "failed_title": "デーモンが掃除の実行に失敗したと報告しました。",
+        "failed_title_detail": "デーモンがエラーを報告しました: {{error}}",
+        "failed_description": "ホストは応答しましたが、スキャンを完了できませんでした。",
         "retry": "再試行"
       }
     },

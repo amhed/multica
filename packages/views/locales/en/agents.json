@@ -1013,9 +1013,14 @@
         "confirm_button": "Reap now",
         "confirm_pending": "Reaping…",
         "success_toast": "Reaped {{count}} process(es) ({{sigkilled}} needed SIGKILL). Load {{loadBefore}} → {{loadAfter}}.",
-        "apply_failed_toast": "Reap failed. No confirmation was received from the host.",
+        "apply_timeout_toast": "Reap failed. No confirmation was received from the host.",
+        "apply_error_toast": "Reap failed: {{error}}",
+        "apply_error_toast_generic": "Reap failed. The daemon reported an error running the reaper.",
         "offline_title": "Daemon did not respond",
         "offline_description": "The host did not respond in time. No processes were killed.",
+        "failed_title": "The daemon reported a failure running the reaper.",
+        "failed_title_detail": "The daemon reported an error: {{error}}",
+        "failed_description": "The host responded, but the scan could not complete.",
         "retry": "Retry"
       }
     },

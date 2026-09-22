@@ -990,9 +990,14 @@
         "confirm_button": "지금 정리",
         "confirm_pending": "정리 중…",
         "success_toast": "{{count}}개 프로세스를 정리했습니다({{sigkilled}}개는 SIGKILL 필요). 부하 {{loadBefore}} → {{loadAfter}}.",
-        "apply_failed_toast": "정리에 실패했습니다. 호스트로부터 확인을 받지 못했습니다.",
+        "apply_timeout_toast": "정리에 실패했습니다. 호스트로부터 확인을 받지 못했습니다.",
+        "apply_error_toast": "정리에 실패했습니다: {{error}}",
+        "apply_error_toast_generic": "정리에 실패했습니다. 데몬이 실행 중 오류를 보고했습니다.",
         "offline_title": "데몬이 응답하지 않습니다",
         "offline_description": "호스트가 제시간에 응답하지 않았습니다. 종료된 프로세스가 없습니다.",
+        "failed_title": "데몬이 정리 실행 중 실패를 보고했습니다.",
+        "failed_title_detail": "데몬이 오류를 보고했습니다: {{error}}",
+        "failed_description": "호스트는 응답했지만 검사를 완료하지 못했습니다.",
         "retry": "다시 시도"
       }
     },

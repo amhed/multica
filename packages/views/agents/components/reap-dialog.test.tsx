@@ -161,4 +161,59 @@ describe("ReapDialog", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
     expect(initiateHostReap).toHaveBeenCalledTimes(1);
   });
+
+  it("shows a distinct failed state (not the timeout copy) on a preview failure, surfacing the daemon's error", async () => {
+    initiateHostReap.mockResolvedValue({ request_id: "r1" });
+    getHostReapResult.mockResolvedValue(
+      request({ status: "failed", error: "reaper binary exited 1" }),
+    );
+
+    renderDialog();
+
+    expect(
+      await screen.findByText("The daemon reported an error: reaper binary exited 1"),
+    ).toBeTruthy();
+    expect(screen.queryByText("Daemon did not respond")).toBeNull();
+    expect(
+      screen.queryByText("The host did not respond in time. No processes were killed."),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reap now" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("toasts the daemon's error (not the timeout copy) when apply comes back failed", async () => {
+    const user = userEvent.setup();
+    initiateHostReap.mockResolvedValue({ request_id: "r1" });
+    getHostReapResult.mockResolvedValueOnce(
+      request({
+        status: "completed",
+        result: {
+          mode: "dryrun",
+          count: 1,
+          load_before: "1.0 1.0 1.0",
+          load_after: null,
+          sigkilled: null,
+          processes: [
+            { pid: 123, age_seconds: 900, pcpu: "12.5", reason: "orphaned", command: "node worker.js" },
+          ],
+        },
+      }),
+    );
+
+    renderDialog();
+    await screen.findByText("1 process found");
+
+    getHostReapResult.mockResolvedValueOnce(
+      request({ status: "failed", mode: "apply", error: "reaper binary exited 1" }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Reap now" }));
+
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("Reap failed: reaper binary exited 1"),
+    );
+    expect(mockToastError).not.toHaveBeenCalledWith(
+      "Reap failed. No confirmation was received from the host.",
+    );
+  });
 });

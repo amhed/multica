@@ -1013,9 +1013,14 @@
         "confirm_button": "Nettoyer maintenant",
         "confirm_pending": "Nettoyage…",
         "success_toast": "{{count}} processus nettoyé(s) ({{sigkilled}} ont nécessité SIGKILL). Charge {{loadBefore}} → {{loadAfter}}.",
-        "apply_failed_toast": "Échec du nettoyage. Aucune confirmation reçue de l'hôte.",
+        "apply_timeout_toast": "Échec du nettoyage. Aucune confirmation reçue de l'hôte.",
+        "apply_error_toast": "Échec du nettoyage : {{error}}",
+        "apply_error_toast_generic": "Échec du nettoyage. Le démon a signalé une erreur lors de l'exécution.",
         "offline_title": "Le démon n'a pas répondu",
         "offline_description": "L'hôte n'a pas répondu à temps. Aucun processus n'a été arrêté.",
+        "failed_title": "Le démon a signalé un échec lors de l'exécution du nettoyage.",
+        "failed_title_detail": "Le démon a signalé une erreur : {{error}}",
+        "failed_description": "L'hôte a répondu, mais l'analyse n'a pas pu aboutir.",
         "retry": "Réessayer"
       }
     },
