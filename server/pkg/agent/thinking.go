@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"regexp"
 	"strings"
 	"sync"
@@ -258,12 +259,14 @@ func projectClaudeLevels(superset []string, allow map[string]bool) []ThinkingLev
 //
 // The subcommand emits JSON on stdout by default — there is no
 // `--output json` flag (a prior version of this code passed one and
-// silently failed on 0.131.0). We add `--bundled` to skip the network
-// refresh: discovery runs on every daemon poll and a network hop here
-// would block the picker behind whatever the user's connection allows.
-// The bundled catalog is what determines which `model_reasoning_effort`
-// tokens the local binary actually accepts, which is the only thing we
-// need for validation.
+// silently failed on 0.131.0). We ask for the account's live catalog
+// first: it carries models OpenAI enables server-side before a CLI
+// release bundles them (gpt-6-sol and gpt-6-luna were live on 0.156.0
+// while its bundled catalog still ended at gpt-6-astra). Codex caches
+// that refresh in ~/.codex/models_cache.json, so a warm call costs no
+// network hop; a cold or offline one is capped by
+// codexLiveCatalogTimeout and then falls back to `--bundled`, which
+// never touches the network.
 //
 // The static fallback deliberately mirrors a recently verified bundled
 // model/thinking catalog. It does not guess service-tier availability.
@@ -316,8 +319,8 @@ type codexDebugServiceTier struct {
 	Description string `json:"description"`
 }
 
-// discoverCodexModels returns the installed Codex binary's bundled visible
-// catalog, including reasoning metadata. Version detection happens before the
+// discoverCodexModels returns the installed Codex binary's visible catalog
+// (live, else bundled), including reasoning metadata. Version detection happens before the
 // debug command so old binaries do not log a predictable "unknown command"
 // failure on every cache refresh.
 func discoverCodexModels(ctx context.Context, cmd Command) []Model {
@@ -333,15 +336,33 @@ func discoverCodexModels(ctx context.Context, cmd Command) []Model {
 		return annotateCodexExplicitStandardServiceTier(codexStaticModels(), supportsExplicitStandard)
 	}
 
-	raw, err := runCodexDebugModels(ctx, cmd)
+	liveCtx, cancel := context.WithTimeout(ctx, codexLiveCatalogTimeout)
+	models, err := codexCatalog(liveCtx, cmd, codexLiveDebugModelsArgs)
+	cancel()
+	if err != nil {
+		models, err = codexCatalog(ctx, cmd, codexBundledDebugModelsArgs)
+	}
 	if err != nil {
 		return annotateCodexExplicitStandardServiceTier(codexStaticModels(), supportsExplicitStandard)
 	}
-	models, err := parseCodexModelCatalog(raw)
-	if err != nil || len(models) == 0 {
-		return annotateCodexExplicitStandardServiceTier(codexStaticModels(), supportsExplicitStandard)
-	}
 	return annotateCodexExplicitStandardServiceTier(models, supportsExplicitStandard)
+}
+
+// codexCatalog runs one `codex debug models` form and parses it. An empty
+// visible catalog is an error so the caller moves on to the next source.
+func codexCatalog(ctx context.Context, cmd Command, args []string) ([]Model, error) {
+	raw, err := runCodexDebugModels(ctx, cmd, args)
+	if err != nil {
+		return nil, err
+	}
+	models, err := parseCodexModelCatalog(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(models) == 0 {
+		return nil, errors.New("codex debug models returned no visible models")
+	}
+	return models, nil
 }
 
 func codexSupportsDebugModels(version string) bool {
@@ -374,16 +395,23 @@ func annotateCodexExplicitStandardServiceTier(models []Model, supported bool) []
 	return models
 }
 
-// codexDebugModelsArgs is the argv we pass to discover the local Codex
-// catalog. Kept as a package-level var (not a literal at the call site)
-// so tests can assert the exact form a real `codex` invocation receives,
-// not just the parser behavior on a fixture string. The argv shape is
-// the contract that broke under PR1 review; the test that pins it sits
-// in thinking_test.go.
-var codexDebugModelsArgs = []string{"debug", "models", "--bundled"}
+// codexLiveDebugModelsArgs and codexBundledDebugModelsArgs are the argv
+// forms we pass to discover the local Codex catalog. Kept as package-level
+// vars (not literals at the call site) so tests can assert the exact form a
+// real `codex` invocation receives, not just the parser behavior on a
+// fixture string. The argv shape is the contract that broke under PR1
+// review; the test that pins it sits in thinking_test.go.
+var (
+	codexLiveDebugModelsArgs    = []string{"debug", "models"}
+	codexBundledDebugModelsArgs = []string{"debug", "models", "--bundled"}
+)
 
-func runCodexDebugModels(ctx context.Context, runtimeCmd Command) ([]byte, error) {
-	cmd := runtimeCmd.exec(ctx, codexDebugModelsArgs...)
+// codexLiveCatalogTimeout caps the live catalog call, which may refresh
+// over the network when Codex's own cache is stale.
+const codexLiveCatalogTimeout = 5 * time.Second
+
+func runCodexDebugModels(ctx context.Context, runtimeCmd Command, args []string) ([]byte, error) {
+	cmd := runtimeCmd.exec(ctx, args...)
 	hideAgentWindow(cmd)
 	return outputOwned(cmd, runtimeCmd.logger)
 }
@@ -424,6 +452,10 @@ func normalizeCodexModelLabel(id, label string) string {
 	switch id {
 	case "gpt-6-astra":
 		return "GPT-6 Astra"
+	case "gpt-6-sol":
+		return "GPT-6 Sol"
+	case "gpt-6-luna":
+		return "GPT-6 Luna"
 	case "gpt-5.6-sol":
 		return "GPT-5.6 Sol"
 	case "gpt-5.6-terra":

@@ -132,8 +132,9 @@ func TestProjectClaudeLevels_PerModelSubset(t *testing.T) {
 //
 // Elon's PR1 review found that `codex debug models --output json` is
 // rejected by codex-cli 0.131.0 — there is no `--output` flag on the
-// subcommand. The fix was to drop the flag and add `--bundled` (which
-// just skips network refresh). These two tests pin the contract:
+// subcommand. The fix was to drop the flag. Discovery now asks for the
+// live catalog first and `--bundled` (no network refresh) second. These
+// tests pin the contract:
 //
 //   - TestCodexDebugModelsArgs_Pinned asserts the literal argv we pass
 //     so a future "let's add a flag" refactor breaks loudly instead of
@@ -166,19 +167,26 @@ func TestRunCodexDebugModels_ArgvSeenByBinary(t *testing.T) {
 	// Linux ETXTBSY when we exec the file (Go #22315).
 	writeTestExecutable(t, fake, []byte(script))
 
-	raw, err := runCodexDebugModels(context.Background(), Command{Path: fake})
-	if err != nil {
-		t.Fatalf("runCodexDebugModels: %v (output=%q)", err, raw)
-	}
+	for _, tc := range []struct {
+		args []string
+		want []string
+	}{
+		{args: codexLiveDebugModelsArgs, want: []string{"debug", "models"}},
+		{args: codexBundledDebugModelsArgs, want: []string{"debug", "models", "--bundled"}},
+	} {
+		raw, err := runCodexDebugModels(context.Background(), Command{Path: fake}, tc.args)
+		if err != nil {
+			t.Fatalf("runCodexDebugModels: %v (output=%q)", err, raw)
+		}
 
-	data, err := os.ReadFile(argvFile)
-	if err != nil {
-		t.Fatalf("read argv file: %v", err)
-	}
-	got := splitNonEmptyLines(string(data))
-	want := []string{"debug", "models", "--bundled"}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("fake codex received argv %v, want %v", got, want)
+		data, err := os.ReadFile(argvFile)
+		if err != nil {
+			t.Fatalf("read argv file: %v", err)
+		}
+		got := splitNonEmptyLines(string(data))
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Fatalf("fake codex received argv %v, want %v", got, tc.want)
+		}
 	}
 }
 
@@ -342,6 +350,59 @@ func TestDiscoverCodexModelsVersionGateAndFallback(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell-script fake binary requires a POSIX shell")
 	}
+
+	t.Run("supported version prefers the account's live catalog", func(t *testing.T) {
+		// The live catalog carries account-enabled models (gpt-6-sol) that
+		// the binary's bundled catalog does not ship yet.
+		dir := t.TempDir()
+		fake := filepath.Join(dir, "codex")
+		script := `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  echo "codex-cli 0.156.0"
+  exit 0
+fi
+if [ "$3" = "--bundled" ]; then
+  echo '{"models":[{"slug":"gpt-6-astra","display_name":"GPT-6-Astra","visibility":"list"}]}'
+  exit 0
+fi
+echo '{"models":[{"slug":"gpt-6-astra","display_name":"GPT-6-Astra","visibility":"list"},{"slug":"gpt-6-sol","display_name":"GPT-6-Sol","visibility":"list"},{"slug":"gpt-reserve","display_name":"GPT-Reserve","visibility":"hide"}]}'
+`
+		writeTestExecutable(t, fake, []byte(script))
+
+		got := discoverCodexModels(context.Background(), Command{Path: fake})
+		ids := make([]string, 0, len(got))
+		for _, m := range got {
+			ids = append(ids, m.ID)
+		}
+		if want := []string{"gpt-6-astra", "gpt-6-sol"}; !reflect.DeepEqual(ids, want) {
+			t.Fatalf("expected live catalog %v, got %v", want, ids)
+		}
+		if got[1].Label != "GPT-6 Sol" {
+			t.Fatalf("gpt-6-sol label = %q, want %q", got[1].Label, "GPT-6 Sol")
+		}
+	})
+
+	t.Run("live catalog failure falls back to bundled catalog", func(t *testing.T) {
+		dir := t.TempDir()
+		fake := filepath.Join(dir, "codex")
+		script := `#!/bin/sh
+if [ "$1" = "--version" ]; then
+  echo "codex-cli 0.156.0"
+  exit 0
+fi
+if [ "$3" = "--bundled" ]; then
+  echo '{"models":[{"slug":"bundled-model","display_name":"Bundled Model","visibility":"list"}]}'
+  exit 0
+fi
+exit 1
+`
+		writeTestExecutable(t, fake, []byte(script))
+
+		got := discoverCodexModels(context.Background(), Command{Path: fake})
+		if len(got) != 1 || got[0].ID != "bundled-model" {
+			t.Fatalf("expected bundled catalog, got %+v", got)
+		}
+	})
 
 	t.Run("supported version uses bundled catalog", func(t *testing.T) {
 		dir := t.TempDir()
