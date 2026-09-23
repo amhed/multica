@@ -108,6 +108,13 @@ describe("HealthCard", () => {
     expect(screen.queryByRole("button", { name: "Reap leaked processes" })).toBeNull();
   });
 
+  it("hides the reap action when the host has no daemon id to target", () => {
+    queryState.current = { data: { hosts: [{ ...redHost, daemon_id: "" }] }, isLoading: false };
+    membersState.current = { data: [{ user_id: "user-1", role: "admin" }], isFetched: true };
+    renderCard();
+    expect(screen.queryByRole("button", { name: "Reap leaked processes" })).toBeNull();
+  });
+
   it("hides the reap action on a green row even for an admin", () => {
     queryState.current = { data: { hosts: [greenHost] }, isLoading: false };
     membersState.current = { data: [{ user_id: "user-1", role: "owner" }], isFetched: true };

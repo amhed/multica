@@ -22,7 +22,12 @@ const (
 // ClientIdentity captures the already-authenticated daemon connection scope.
 type ClientIdentity struct {
 	DaemonID string
-	UserID   string
+	// RuntimeDaemonID is the daemon_id recorded on this connection's runtime
+	// rows. It is informational only (never an auth scope): PAT-authenticated
+	// daemons have an empty DaemonID, and host health / host reap still need
+	// a daemon id to route by. Read it through HostDaemonID.
+	RuntimeDaemonID string
+	UserID          string
 	// WorkspaceID is the legacy single-workspace scope used by older callers
 	// and daemon-token auth. New code should populate WorkspaceIDs from the
 	// runtime rows authorized for this connection.
@@ -258,6 +263,16 @@ func (c *client) runtimeCount() int {
 	c.runtimeMu.RLock()
 	defer c.runtimeMu.RUnlock()
 	return len(c.runtimes)
+}
+
+// HostDaemonID identifies the daemon host behind this connection for host
+// health and host reap: the auth-scoped DaemonID when set, otherwise the
+// daemon id derived from the runtime rows.
+func (i ClientIdentity) HostDaemonID() string {
+	if i.DaemonID != "" {
+		return i.DaemonID
+	}
+	return i.RuntimeDaemonID
 }
 
 // anyLiveRuntimeID returns a runtime id currently tracked as live on this
@@ -888,7 +903,7 @@ func (h *Hub) WorkspaceHostHealth(workspaceID string) []HostHealthEntry {
 		if host == nil {
 			continue
 		}
-		id := c.identity.DaemonID
+		id := c.identity.HostDaemonID()
 		if _, dup := seen[id]; dup {
 			continue
 		}
@@ -905,8 +920,11 @@ func (h *Hub) WorkspaceHostHealth(workspaceID string) []HostHealthEntry {
 func (h *Hub) RuntimeForDaemon(workspaceID, daemonID string) (string, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	if daemonID == "" {
+		return "", false
+	}
 	for c := range h.byWorkspace[workspaceID] {
-		if c.identity.DaemonID != daemonID {
+		if c.identity.HostDaemonID() != daemonID {
 			continue
 		}
 		if rid, ok := c.anyLiveRuntimeID(); ok {

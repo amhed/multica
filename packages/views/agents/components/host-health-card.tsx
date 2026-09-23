@@ -53,7 +53,8 @@ function HostRow({
   const { t } = useT("agents");
   const status = deriveHostStatus(host);
   const [reapOpen, setReapOpen] = useState(false);
-  const showReapAction = canManageWorkspace && status !== "green";
+  // Without a daemon id the reap request has no route to target.
+  const showReapAction = canManageWorkspace && status !== "green" && host.daemon_id !== "";
   return (
     <div
       className={cn(

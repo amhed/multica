@@ -40,3 +40,26 @@ func TestWorkspaceHostHealth_DedupesByDaemon(t *testing.T) {
 		t.Fatalf("expected dedupe to 1 entry, got %d", n)
 	}
 }
+
+// PAT-authenticated daemons carry no auth-scoped DaemonID; host health and
+// reap routing fall back to the daemon id derived from their runtime rows.
+func TestHostHealthAndReapRouting_PATDaemon(t *testing.T) {
+	h := &Hub{byWorkspace: map[string]map[*client]bool{}}
+	c := &client{
+		identity: ClientIdentity{RuntimeDaemonID: "pat-daemon", RuntimeIDs: []string{"rt-1"}},
+		runtimes: map[string]struct{}{"rt-1": {}},
+	}
+	c.setHost(&protocol.DaemonHost{NCPU: 8})
+	h.byWorkspace["ws"] = map[*client]bool{c: true}
+
+	got := h.WorkspaceHostHealth("ws")
+	if len(got) != 1 || got[0].DaemonID != "pat-daemon" {
+		t.Fatalf("host health = %+v, want one entry for pat-daemon", got)
+	}
+	if rid, ok := h.RuntimeForDaemon("ws", "pat-daemon"); !ok || rid != "rt-1" {
+		t.Fatalf("RuntimeForDaemon = (%q, %v), want (rt-1, true)", rid, ok)
+	}
+	if _, ok := h.RuntimeForDaemon("ws", ""); ok {
+		t.Fatal("RuntimeForDaemon matched an empty daemon id")
+	}
+}

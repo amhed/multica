@@ -74,6 +74,9 @@ func (h *Handler) buildDaemonWebSocketIdentity(w http.ResponseWriter, r *http.Re
 			writeError(w, http.StatusNotFound, "runtime not found")
 			return daemonws.ClientIdentity{}, false
 		}
+		if identity.RuntimeDaemonID == "" && rt.DaemonID.Valid {
+			identity.RuntimeDaemonID = rt.DaemonID.String
+		}
 		workspaceID := uuidToString(rt.WorkspaceID)
 		if !h.requireDaemonWorkspaceAccess(w, r, workspaceID) {
 			return daemonws.ClientIdentity{}, false

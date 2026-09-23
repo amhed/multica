@@ -139,3 +139,31 @@ func TestBuildDaemonWebSocketIdentityRejectsCrossWorkspaceRuntime(t *testing.T) 
 		t.Fatalf("status = %d, want 404: %s", w.Code, w.Body.String())
 	}
 }
+
+// A daemon authenticated with a user PAT (mul_) has no daemon id in its auth
+// context. The host-health card and host reap still need a daemon id to route
+// by, so it is derived from the runtime rows, without changing the auth scope.
+func TestBuildDaemonWebSocketIdentityDerivesHostDaemonIDForPAT(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	const daemonID = "pat-host-daemon"
+	runtimeID := dbfx.Runtime(t, "WS PAT host daemon", testutil.Cols{
+		"workspace_id": testWorkspaceID,
+		"daemon_id":    daemonID,
+		"device_info":  "WS PAT host daemon",
+	})
+	req := newRequest(http.MethodGet, "/api/daemon/ws", nil)
+	w := httptest.NewRecorder()
+
+	identity, ok := testHandler.buildDaemonWebSocketIdentity(w, req, []string{runtimeID}, testUserID)
+	if !ok {
+		t.Fatalf("buildDaemonWebSocketIdentity rejected PAT runtime: %d %s", w.Code, w.Body.String())
+	}
+	if identity.DaemonID != "" {
+		t.Fatalf("auth-scoped DaemonID = %q, want empty for PAT", identity.DaemonID)
+	}
+	if got := identity.HostDaemonID(); got != daemonID {
+		t.Fatalf("HostDaemonID() = %q, want %q", got, daemonID)
+	}
+}
