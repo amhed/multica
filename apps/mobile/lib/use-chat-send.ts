@@ -21,7 +21,8 @@ import { chatKeys } from "@/data/queries/chat";
 import { useCreateChatSession } from "@/data/mutations/chat";
 import { useChatDraftsStore } from "@/data/stores/chat-drafts-store";
 import { seedAcceptedPendingTask } from "@/data/realtime/chat-ws-updaters";
-import { sendFailureMessage } from "@/lib/dispatch-reason";
+import { dispatchReasonCode } from "@/lib/dispatch-reason";
+import { useT } from "@/lib/i18n";
 
 export function useChatSend(args: {
   activeSessionId: string | null;
@@ -38,6 +39,21 @@ export function useChatSend(args: {
     setActiveSessionId,
   } = args;
   const qc = useQueryClient();
+  const { t } = useT("chat");
+  const sendFailureMessage = useCallback((err: unknown) => {
+    switch (dispatchReasonCode(err)) {
+      case "invocation_not_allowed":
+        return t("failure.invocation_not_allowed");
+      case "agent_runtime_required":
+        return t("failure.agent_runtime_required");
+      case "runtime_access_denied":
+        return t("failure.runtime_access_denied", {
+          detail: t("failure.runtime_access_recovery"),
+        });
+      default:
+        return t("failure.default");
+    }
+  }, [t]);
   const createSession = useCreateChatSession();
   const promoteNewDraft = useChatDraftsStore((s) => s.promoteNewDraft);
   const clearDraft = useChatDraftsStore((s) => s.clearDraft);
@@ -78,15 +94,15 @@ export function useChatSend(args: {
       // this state; this is the belt-and-braces guard.
       if (accessRevoked) {
         Alert.alert(
-          "No permission to run this agent",
-          "You no longer have permission to run this agent, so the message was not sent. Ask its owner for access.",
+          t("alerts.no_permission_title"),
+          t("alerts.no_permission_message"),
         );
         return;
       }
       if (!runtimeBound) {
         Alert.alert(
-          "Runtime required",
-          "Bind a runtime to this agent on web or desktop before sending a message.",
+          t("alerts.runtime_title"),
+          t("alerts.runtime_message"),
         );
         return;
       }
@@ -99,7 +115,7 @@ export function useChatSend(args: {
         // Session create runs the same invoke gate as a send, so a permission
         // change refuses here too — and this is the only layer that sees the
         // reason code (MUL-6380).
-        Alert.alert("Message not sent", sendFailureMessage(err));
+        Alert.alert(t("alerts.not_sent"), sendFailureMessage(err));
         throw err;
       }
       if (!sessionId) return;
@@ -185,6 +201,8 @@ export function useChatSend(args: {
       runtimeBound,
       ensureSession,
       qc,
+      sendFailureMessage,
+      t,
       promoteNewDraft,
       clearDraft,
       setActiveSessionId,

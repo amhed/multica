@@ -66,6 +66,7 @@ import { useChatSessionRealtime } from "@/data/realtime/use-chat-session-realtim
 import { invalidatePendingTask } from "@/data/realtime/chat-ws-updaters";
 import { useChatSend } from "@/lib/use-chat-send";
 import { useWorkspaceAgentAvailability } from "@/lib/workspace-agent-availability";
+import { useT } from "@/lib/i18n";
 import { useAgentPresence } from "@/lib/use-agent-presence";
 import { Header } from "@/components/ui/header";
 import { ChatTitleButton } from "@/components/chat/chat-title-button";
@@ -78,10 +79,10 @@ import { OfflineBanner } from "@/components/chat/offline-banner";
 import { RuntimeRequiredBanner } from "@/components/chat/runtime-required-banner";
 import { useChatSelectStore } from "@/data/chat-select-store";
 import { isAgentRuntimeBound } from "@/lib/is-agent-runtime-bound";
-import { chatSessionDisplayTitle } from "@/lib/chat-session-title";
 
 export default function ChatTab() {
   const qc = useQueryClient();
+  const { t } = useT("chat");
   const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const wsSlug = useWorkspaceStore((s) => s.currentWorkspaceSlug);
   const userId = useAuthStore((s) => s.user?.id);
@@ -283,12 +284,12 @@ export default function ChatTab() {
   const handleDeleteActive = useCallback(() => {
     if (!activeSession) return;
     Alert.alert(
-      "Delete this chat?",
-      chatSessionDisplayTitle(activeSession.title),
+      t("alerts.delete_title"),
+      activeSession.title || t("sessions.new_chat"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common:actions.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("alerts.delete_confirm"),
           style: "destructive",
           onPress: () => {
             const id = activeSession.id;
@@ -299,7 +300,7 @@ export default function ChatTab() {
       ],
       { cancelable: true },
     );
-  }, [activeSession, deleteSession]);
+  }, [activeSession, deleteSession, t]);
 
   // ── Composer disabled-state ────────────────────────────────────────────
   const disabled =
@@ -309,15 +310,15 @@ export default function ChatTab() {
     isArchived === true ||
     !runtimeBound;
   const disabledReason = !currentAgent
-    ? "No agent selected"
+    ? t("composer.no_agent")
     : accessRevoked
-      ? "You can no longer run this agent"
+      ? t("composer.revoked")
       : availability === "none"
-        ? "No agents in this workspace"
+        ? t("composer.no_agents")
         : isArchived
-          ? "This chat is archived"
+          ? t("composer.archived")
           : !runtimeBound
-            ? "Agent needs a runtime"
+            ? t("composer.runtime_required")
           : undefined;
 
   return (

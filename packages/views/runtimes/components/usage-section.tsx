@@ -21,6 +21,7 @@ import { useCustomPricingStore } from "@multica/core/runtimes/custom-pricing-sto
 import { useSubscriptionPricingStore } from "@multica/core/runtimes/subscription-pricing-store";
 import { useViewingTimezone } from "../../common/use-viewing-timezone";
 import {
+  cacheHitRatePercent,
   formatTokens,
   formatUsd,
   estimateCost,
@@ -174,9 +175,11 @@ export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
 
   const tokensTotal =
     totals.input + totals.output + totals.cacheRead + totals.cacheWrite;
-  const cacheableTokens = totals.input + totals.cacheRead;
-  const cacheHitRate =
-    cacheableTokens > 0 ? Math.round((totals.cacheRead / cacheableTokens) * 100) : 0;
+  const cacheHitRate = cacheHitRatePercent(
+    totals.input,
+    totals.cacheRead,
+    totals.cacheWrite,
+  );
 
   const costDelta = pctChange(totals.cost, prevTotals.cost);
   const locales = i18n.resolvedLanguage ?? i18n.language;
@@ -275,10 +278,12 @@ export function UsageSection({ runtime }: { runtime: AgentRuntime }) {
           accent={totals.cacheSavings > 0 ? "success" : "default"}
           hint={
             <span>
-              {t(($) => $.usage.kpi_cache_hint, {
-                pct: cacheHitRate,
-                reads: formatTokens(totals.cacheRead),
-              })}
+              {cacheHitRate == null
+                ? "—"
+                : t(($) => $.usage.kpi_cache_hint, {
+                    pct: cacheHitRate,
+                    reads: formatTokens(totals.cacheRead),
+                  })}
             </span>
           }
         />
