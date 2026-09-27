@@ -34,10 +34,6 @@ pnpm ios:mobile:device:prod:release
 
 Everything below is for app developers — you can ignore the rest if you only wanted a personal install.
 
-## Voice support
-
-This revision does not include native voice conversations or voice API-key settings.
-
 ## Scripts
 
 | Command | What it does | Backend |
