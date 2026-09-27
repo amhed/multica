@@ -223,6 +223,10 @@
         "label": "显示或隐藏聊天窗",
         "description": "打开或关闭悬浮聊天窗，打开时自动聚焦输入框。"
       },
+      "newChatWithLastAgent": {
+        "label": "与上次的智能体新建聊天",
+        "description": "与最近一次对话的智能体开始新聊天。"
+      },
       "findInIssue": {
         "label": "在任务中查找",
         "description": "搜索当前打开的任务详情。"

@@ -223,6 +223,10 @@
         "label": "Toggle chat window",
         "description": "Open or close the floating chat window. Opening it focuses the message input."
       },
+      "newChatWithLastAgent": {
+        "label": "New chat with last agent",
+        "description": "Start a new chat with the agent from your most recent conversation."
+      },
       "findInIssue": {
         "label": "Find in issue",
         "description": "Search within the open issue detail."

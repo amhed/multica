@@ -98,6 +98,21 @@ describe("keyboard shortcut definitions", () => {
     expect(action.allowInEditable).toBe(true);
   });
 
+  it("binds new chat with the last agent to Mod+Shift+O on every platform and runtime", () => {
+    const chord = createShortcutChord("O", { primary: true, shift: true });
+    const action = SHORTCUT_ACTION_BY_ID.newChatWithLastAgent;
+    expect(action.defaultShortcut).toEqual(chord);
+    for (const platform of ["macos", "windows", "linux"] as const) {
+      for (const runtime of ["web", "desktop"] as const) {
+        expect(
+          isShortcutAllowedForAction("newChatWithLastAgent", chord, platform, runtime),
+          `Mod+Shift+O must stay assignable on ${platform}/${runtime}`,
+        ).toBe(true);
+      }
+    }
+    expect(action.allowInEditable).toBe(true);
+  });
+
   it("keeps the plain inbox archive key out of editable controls", () => {
     expect(SHORTCUT_ACTION_BY_ID.archiveInboxItem.allowInEditable).toBe(false);
   });

@@ -5,6 +5,7 @@ import type { ChatSession } from "../types/chat";
 import {
   countUnreadChatSessions,
   isTaskMessageTaskId,
+  latestChatAgentId,
   mergeTaskMessagesBySeq,
   sortChatSessions,
   taskMessagesOptions,
@@ -141,6 +142,54 @@ describe("sortChatSessions", () => {
     const snapshot = input.map((s) => s.id);
     sortChatSessions(input);
     expect(input.map((s) => s.id)).toEqual(snapshot);
+  });
+});
+
+describe("latestChatAgentId", () => {
+  const session = (over: Partial<ChatSession>): ChatSession => ({
+    id: "s",
+    workspace_id: "w",
+    agent_id: "a",
+    creator_id: "c",
+    title: "t",
+    status: "active",
+    has_unread: false,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    ...over,
+  });
+  const agent = (id: string, archived_at: string | null = null) => ({ id, archived_at });
+
+  it("returns the agent of the most recently active chat, ignoring pin order", () => {
+    const sessions = [
+      session({ id: "pinned-old", agent_id: "old", pinned: true, updated_at: "2026-01-01T00:00:00Z" }),
+      session({
+        id: "recent",
+        agent_id: "recent",
+        updated_at: "2026-01-01T00:00:00Z",
+        last_message: { content: "x", role: "user", created_at: "2026-06-02T00:00:00Z" },
+      }),
+      session({ id: "mid", agent_id: "mid", updated_at: "2026-06-01T00:00:00Z" }),
+    ];
+
+    expect(latestChatAgentId(sessions, [agent("old"), agent("recent"), agent("mid")])).toBe("recent");
+  });
+
+  it("skips archived chats and chats whose agent is archived or gone", () => {
+    const sessions = [
+      session({ id: "archived-chat", agent_id: "a1", status: "archived", updated_at: "2026-06-04T00:00:00Z" }),
+      session({ id: "archived-agent", agent_id: "a2", updated_at: "2026-06-03T00:00:00Z" }),
+      session({ id: "deleted-agent", agent_id: "a3", updated_at: "2026-06-02T00:00:00Z" }),
+      session({ id: "ok", agent_id: "a4", updated_at: "2026-06-01T00:00:00Z" }),
+    ];
+
+    expect(
+      latestChatAgentId(sessions, [agent("a1"), agent("a2", "2026-06-05T00:00:00Z"), agent("a4")]),
+    ).toBe("a4");
+  });
+
+  it("returns null when no chat qualifies", () => {
+    expect(latestChatAgentId([], [agent("a")])).toBeNull();
   });
 });
 

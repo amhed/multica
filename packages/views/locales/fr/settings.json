@@ -223,6 +223,10 @@
         "label": "Afficher ou masquer la fenêtre de discussion",
         "description": "Ouvrir ou fermer la fenêtre de discussion flottante. À l'ouverture, le champ de message reçoit le focus."
       },
+      "newChatWithLastAgent": {
+        "label": "Nouvelle discussion avec le dernier agent",
+        "description": "Démarrer une nouvelle discussion avec l'agent de votre conversation la plus récente."
+      },
       "findInIssue": {
         "label": "Rechercher dans la tâche",
         "description": "Rechercher dans la tâche ouverte."
