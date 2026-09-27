@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { QuotaMeter } from "./quota-meter";
+import { QuotaDetails, QuotaMeter } from "./quota-meter";
 
 // react-i18next isn't initialised in the views test env, so resolve the
 // selector against the en/layout.json copy the widget uses.
@@ -69,9 +69,32 @@ describe("QuotaMeter", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders a bar per consumption window and a balance for balance-only providers", () => {
+  it("renders one compact figure per window, without bars", () => {
     snapshot.current = fixture;
     render(<QuotaMeter />);
+
+    expect(screen.getByRole("button", { name: "Provider quota" })).toBeInTheDocument();
+    // Claude stacks session over weekly; Codex shows its only window.
+    expect(screen.getByText("57%")).toBeInTheDocument();
+    expect(screen.getByText("85%")).toBeInTheDocument();
+    expect(screen.getByText("2%")).toBeInTheDocument();
+    // Grok has no consumption window, so its balance stands in.
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  it("colors a figure by how close it is to the limit", () => {
+    snapshot.current = fixture;
+    render(<QuotaMeter />);
+    expect(screen.getByText("85%")).toHaveClass("text-warning");
+    expect(screen.getByText("57%")).not.toHaveClass("text-warning");
+  });
+});
+
+describe("QuotaDetails", () => {
+  it("renders a bar per consumption window and a balance for balance-only providers", () => {
+    snapshot.current = fixture;
+    render(<QuotaDetails snapshot={fixture as never} />);
 
     expect(screen.getByText("Claude")).toBeInTheDocument();
     expect(screen.getByText("57%")).toBeInTheDocument();
@@ -90,8 +113,7 @@ describe("QuotaMeter", () => {
   });
 
   it("flags a stale snapshot", () => {
-    snapshot.current = { ...fixture, stale: true };
-    render(<QuotaMeter />);
+    render(<QuotaDetails snapshot={{ ...fixture, stale: true } as never} />);
     expect(screen.getByText("Stale")).toBeInTheDocument();
   });
 });
