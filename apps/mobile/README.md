@@ -49,8 +49,13 @@ Everything below is for app developers — you can ignore the rest if you only w
 | `pnpm ios:mobile:device:staging:release` | Full rebuild + install on **USB iPhone**, Release (standalone) | staging |
 | `pnpm ios:mobile:device:prod` | Full rebuild + install on **USB iPhone**, Debug | production |
 | `pnpm ios:mobile:device:prod:release` | Full rebuild + install on **USB iPhone**, Release (standalone) | production |
+| `pnpm ios:mobile:device:prod:install` | Same as `prod:release`, built with `xcodebuild` + `devicectl` instead of `expo run:ios` | production |
 
 `dev:*` runs Metro only — assumes the matching variant is already installed. `ios:mobile*` does a full native rebuild + install.
+
+Use `ios:mobile:device:prod:install` when `expo run:ios` stops with "Can't determine id of Simulator app" (Xcode installs without Simulator.app).
+It installs on the first paired iPhone, or pass a device name or UDID: `pnpm ios:mobile:device:prod:install "My iPhone"`.
+It needs `EXPO_APPLE_TEAM_ID` because `xcodebuild` cannot prompt for a signing team; set it in the gitignored `.env.production.local`.
 
 Bundle id and display name switch on `APP_ENV` (see `app.config.ts`), so Dev / Staging / Production variants can coexist on the same device or simulator.
 

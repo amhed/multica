@@ -15,10 +15,11 @@
     "ios:device:staging:release": "dotenv -e .env.staging -- cross-env APP_ENV=staging ./scripts/ios-run.sh --device --configuration Release",
     "ios:device:prod": "dotenv -e .env.production.local -e .env.production -- cross-env APP_ENV=production ./scripts/ios-run.sh --device",
     "ios:device:prod:release": "dotenv -e .env.production.local -e .env.production -- cross-env APP_ENV=production ./scripts/ios-run.sh --device --configuration Release",
+    "ios:device:prod:install": "dotenv -e .env.production.local -e .env.production -- cross-env APP_ENV=production ./scripts/ios-device-install.sh",
     "ios:device:segurohq:release": "dotenv -e .env.segurohq -- cross-env APP_ENV=production ./scripts/ios-run.sh --device --configuration Release",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run && bash scripts/ios-run.test.sh"
+    "test": "vitest run && bash scripts/ios-run.test.sh && bash scripts/ios-device-install.test.sh"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
