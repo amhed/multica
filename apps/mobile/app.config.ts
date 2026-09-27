@@ -85,6 +85,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         {
           ios: {
             buildReactNativeFromSource: true,
+            // expo-router (SDK 55) sets UIAction.subtitle without an
+            // availability check, and the iOS 27 SDK marks it iOS 16+, so a
+            // 15.1 target fails to compile.
+            deploymentTarget: "16.0",
           },
         },
       ],
