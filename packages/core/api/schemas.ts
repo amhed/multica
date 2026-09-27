@@ -437,6 +437,7 @@ export const PRAutoCompleteSchema = z.object({
   pull_request_ids: z.array(z.string()).default([]),
   issue_disabled: z.boolean().default(false),
   workspace_enabled: z.boolean().default(true),
+  target_status: z.string().optional().catch(undefined),
 }).loose();
 
 export const IssuePullRequestsResponseSchema = z.object({
@@ -913,6 +914,22 @@ export const EMPTY_ATTACHMENT: Attachment = {
 // wasn't updated in lock-step. `.loose()` removes that synchronisation
 // hazard — the schema validates the shape it knows about and leaves the
 // rest alone.
+// One receipt per running turn a comment steered. A malformed receipt is
+// dropped on its own rather than failing the whole comment.
+const CommentSupplementReceiptSchema = z.object({
+  task_id: z.string(),
+  agent_id: z.string().optional().catch(undefined),
+  status: z.enum(["pending", "delivering", "delivered", "failed"]),
+  failure_reason: z.string().optional().catch(undefined),
+  delivered_at: z.string().optional().catch(undefined),
+});
+
+const CommentSupplementReceiptsSchema = z.array(z.unknown()).optional().catch(undefined)
+  .transform((raw) => raw?.flatMap((item) => {
+    const parsed = CommentSupplementReceiptSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  }));
+
 const TimelineEntrySchema = z.object({
   type: z.string(),
   id: z.string(),
@@ -931,6 +948,7 @@ const TimelineEntrySchema = z.object({
   reactions: z.array(ReactionSchema).optional(),
   attachments: z.array(AttachmentSchema).optional(),
   source_task_id: z.string().nullable().optional(),
+  supplements: CommentSupplementReceiptsSchema,
   supplement_task_id: z.string().optional().catch(undefined),
   supplement_status: z.enum(["pending", "delivering", "delivered", "failed"]).optional().catch(undefined),
   supplement_failure_reason: z.string().optional().catch(undefined),
@@ -1233,6 +1251,7 @@ export const CommentSchema = z.object({
   updated_at: z.string(),
   revision: z.number().int().positive().optional(),
   source_task_id: z.string().nullable().optional(),
+  supplements: CommentSupplementReceiptsSchema,
   supplement_task_id: z.string().optional().catch(undefined),
   supplement_status: z.enum(["pending", "delivering", "delivered", "failed"]).optional().catch(undefined),
   supplement_failure_reason: z.string().optional().catch(undefined),
@@ -2046,6 +2065,8 @@ export const AgentActivityBucketListSchema = z.array(z.object({
   failed_count: z.number().int().nonnegative(),
   completed_count: z.number().int().nonnegative(),
   cancelled_count: z.number().int().nonnegative(),
+  duration_ms: z.number().nonnegative().optional().catch(undefined),
+  duration_count: z.number().int().nonnegative().optional().catch(undefined),
 }).loose());
 
 export const AgentTaskListSchema = z.array(AgentTaskSchema);
@@ -2127,6 +2148,11 @@ export const MALFORMED_HOST_REAP_REQUEST: HostReapRequest = {
   created_at: "",
   updated_at: "",
 };
+
+export const AgentTaskPageSchema = z.object({
+  tasks: AgentTaskListSchema,
+  nextCursor: z.string().min(1).nullable(),
+});
 
 // One row of a run transcript. `output_truncated` gates a completeness claim
 // the UI makes about a tool's output, so it stays `.optional()` with no
@@ -3661,6 +3687,9 @@ export const WorkspaceMcpServerSchema = z.object({
   name: z.string().default(""),
   transport: z.string().default("unknown"),
   enabled: z.boolean().optional(),
+  // Older servers omit it; a malformed value drops to "unknown" rather than
+  // failing the whole list.
+  agent_count: z.number().int().nonnegative().optional().catch(undefined),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
 });
