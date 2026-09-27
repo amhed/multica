@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
 import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { configureShortcutPlatform } from "@multica/core/shortcuts";
 import { GlobalShortcuts } from "./global-shortcuts";
 
@@ -13,6 +15,7 @@ const h = vi.hoisted(() => ({
   searchToggle: vi.fn(),
 }));
 
+vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
 vi.mock("@multica/core/chat", () => ({
   useChatStore: Object.assign(
     (selector: (state: typeof h.chat) => unknown) => selector(h.chat),
@@ -50,6 +53,11 @@ vi.mock("../search/search-store", () => ({
   useSearchStore: { getState: () => ({ toggle: h.searchToggle }) },
 }));
 
+// GlobalShortcuts resolves chat history through the query client.
+function wrapper({ children }: { children: ReactNode }) {
+  return <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>;
+}
+
 /** Mod+J on macOS, dispatched the way a real keypress reaches the document. */
 function pressToggleChat(target: EventTarget = document): boolean {
   const event = new KeyboardEvent("keydown", {
@@ -77,14 +85,14 @@ afterEach(() => {
 
 describe("chat toggle shortcut", () => {
   it("toggles the floating window and consumes the chord", () => {
-    render(<GlobalShortcuts />);
+    render(<GlobalShortcuts />, { wrapper });
 
     expect(pressToggleChat()).toBe(true);
     expect(h.chat.toggle).toHaveBeenCalledTimes(1);
   });
 
   it("still fires while the caret is inside a text input", () => {
-    render(<GlobalShortcuts />);
+    render(<GlobalShortcuts />, { wrapper });
     const input = document.createElement("input");
     document.body.appendChild(input);
     input.focus();
@@ -97,7 +105,7 @@ describe("chat toggle shortcut", () => {
 
   it("leaves the chord alone on the Chat tab, where the overlay is suppressed", () => {
     h.navigation.pathname = "/acme/chat";
-    render(<GlobalShortcuts />);
+    render(<GlobalShortcuts />, { wrapper });
 
     // Not prevented: an action that cannot run must not swallow the keypress.
     expect(pressToggleChat()).toBe(false);
@@ -106,14 +114,14 @@ describe("chat toggle shortcut", () => {
 
   it("leaves the chord alone when the floating window is turned off", () => {
     h.chat.floatingChatEnabled = false;
-    render(<GlobalShortcuts />);
+    render(<GlobalShortcuts />, { wrapper });
 
     expect(pressToggleChat()).toBe(false);
     expect(h.chat.toggle).not.toHaveBeenCalled();
   });
 
   it("reads the preference at press time, not at mount", () => {
-    render(<GlobalShortcuts />);
+    render(<GlobalShortcuts />, { wrapper });
 
     h.chat.floatingChatEnabled = false;
     expect(pressToggleChat()).toBe(false);
@@ -124,7 +132,7 @@ describe("chat toggle shortcut", () => {
   });
 
   it("does not confuse the chat chord with the other global bindings", () => {
-    render(<GlobalShortcuts />);
+    render(<GlobalShortcuts />, { wrapper });
 
     document.dispatchEvent(
       new KeyboardEvent("keydown", {

@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configureShortcutPlatform } from "@multica/core/shortcuts";
 import { NavigationProvider, type NavigationAdapter } from "../navigation";
@@ -10,6 +11,7 @@ import { GlobalShortcuts } from "./global-shortcuts";
 vi.mock("@multica/ui/components/ui/sidebar", () => ({
   useSidebar: () => ({ toggleSidebar: vi.fn() }),
 }));
+vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
 vi.mock("@multica/core/chat", () => ({
   useChatStore: { getState: () => ({ floatingChatEnabled: false }) },
 }));
@@ -47,9 +49,11 @@ function makeAdapter(overrides: Partial<NavigationAdapter> = {}): NavigationAdap
 
 function renderShortcuts(adapter: NavigationAdapter) {
   return render(
-    <NavigationProvider value={adapter}>
-      <GlobalShortcuts />
-    </NavigationProvider>,
+    <QueryClientProvider client={new QueryClient()}>
+      <NavigationProvider value={adapter}>
+        <GlobalShortcuts />
+      </NavigationProvider>
+    </QueryClientProvider>,
   );
 }
 

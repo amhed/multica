@@ -11,6 +11,7 @@ export type ShortcutActionId =
   | "toggleSidebar"
   | "toggleRightSidebar"
   | "toggleChat"
+  | "newChatWithLastAgent"
   | "findInIssue"
   | "archiveInboxItem"
   | "send"
@@ -93,6 +94,16 @@ export const SHORTCUT_ACTIONS: readonly ShortcutActionDefinition[] = [
   // the binding is reaching — and dismissing — chat without a mouse, which has
   // to keep working while the caret sits in the chat composer itself.
   { id: "toggleChat", category: "general", defaultShortcut: primary("J"), allowInEditable: true },
+  // Mod+Shift+O is the "new chat" chord common to LLM chat UIs. The shifted
+  // variant leaves bare Mod+O (the browser's Open File) alone, and neither is
+  // reserved by this module's policy. `allowInEditable` so a new chat can be
+  // started straight from the composer or any other text field.
+  {
+    id: "newChatWithLastAgent",
+    category: "general",
+    defaultShortcut: createShortcutChord("O", { primary: true, shift: true }),
+    allowInEditable: true,
+  },
   { id: "findInIssue", category: "general", defaultShortcut: primary("F"), allowInEditable: true },
   {
     id: "archiveInboxItem",

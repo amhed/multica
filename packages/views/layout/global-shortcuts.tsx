@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useSidebar } from "@multica/ui/components/ui/sidebar";
 import {
   getShortcut,
@@ -11,10 +12,13 @@ import {
   type ShortcutActionId,
 } from "@multica/core/shortcuts";
 import { useChatStore } from "@multica/core/chat";
+import { chatSessionsOptions, latestChatAgentId } from "@multica/core/chat/queries";
+import { useWorkspaceId } from "@multica/core/hooks";
 import { openCreateIssueWithPreference } from "@multica/core/issues/stores";
 import { useModalStore } from "@multica/core/modals";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { isImeComposing } from "@multica/core/utils";
+import { agentListOptions } from "@multica/core/workspace/queries";
 import { isFloatingChatRouteSuppressed } from "../chat/floating-chat-visibility";
 import { useNavigation } from "../navigation";
 import { useSearchStore } from "../search/search-store";
@@ -24,6 +28,7 @@ const GLOBAL_ACTIONS: readonly ShortcutActionId[] = [
   "createIssue",
   "toggleSidebar",
   "toggleChat",
+  "newChatWithLastAgent",
   "goBack",
   "goForward",
   "goInbox",
@@ -49,6 +54,8 @@ export function GlobalShortcuts() {
   const { toggleSidebar } = useSidebar();
   const navigation = useNavigation();
   const workspacePaths = useWorkspacePaths();
+  const queryClient = useQueryClient();
+  const wsId = useWorkspaceId();
 
   // Subscribe so changing a binding in Settings immediately refreshes the
   // listener closure; getShortcut remains useful to non-React call sites.
@@ -80,6 +87,27 @@ export function GlobalShortcuts() {
       useChatStore.getState().floatingChatEnabled &&
       !isFloatingChatRouteSuppressed(navigation.pathname, chatPath);
 
+    // Resolved at press time from the (usually warm) chat and agent caches.
+    // Without a usable previous chat, or if history fails to load, the chat
+    // page itself is still the right landing spot.
+    const openNewChatWithLastAgent = async () => {
+      let agentId: string | null = null;
+      try {
+        const [sessions, agents] = await Promise.all([
+          queryClient.ensureQueryData(chatSessionsOptions(wsId)),
+          queryClient.ensureQueryData(agentListOptions(wsId)),
+        ]);
+        agentId = latestChatAgentId(sessions, agents);
+      } catch {
+        agentId = null;
+      }
+      if (agentId) {
+        navigation.push(workspacePaths.chatWithAgent(agentId));
+      } else if (navigation.pathname !== chatPath) {
+        navigation.push(chatPath);
+      }
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       // Component/editor handlers run before this document-level listener.
       // Respect their preventDefault instead of double-triggering a product
@@ -103,6 +131,10 @@ export function GlobalShortcuts() {
       }
       if (actionId === "toggleChat") {
         useChatStore.getState().toggle();
+        return;
+      }
+      if (actionId === "newChatWithLastAgent") {
+        void openNewChatWithLastAgent();
         return;
       }
       if (actionId === "toggleSidebar") {
@@ -139,7 +171,7 @@ export function GlobalShortcuts() {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [navigation, overrides, toggleSidebar, workspacePaths]);
+  }, [navigation, overrides, queryClient, toggleSidebar, workspacePaths, wsId]);
 
   return null;
 }

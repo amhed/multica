@@ -1,6 +1,7 @@
 import { infiniteQueryOptions, queryOptions, useQuery, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { api } from "../api";
+import type { Agent } from "../types/agent";
 import type { TaskMessagePayload } from "../types/events";
 import type {
   ChatQuickActionsFailureState,
@@ -85,6 +86,26 @@ export function chatSessionsOptions(wsId: string) {
 /** Last-activity timestamp used to rank the IM list (newest first). */
 function sessionActivityTime(s: ChatSession): number {
   return new Date(s.last_message?.created_at ?? s.updated_at).getTime();
+}
+
+/**
+ * Agent of the user's most recently active chat, for "new chat with the last
+ * agent". Pin order is ignored, and archived chats or chats bound to an
+ * archived/deleted agent are skipped so the result can still start a chat.
+ */
+export function latestChatAgentId(
+  sessions: ChatSession[],
+  agents: Pick<Agent, "id" | "archived_at">[],
+): string | null {
+  const activeAgentIds = new Set(
+    agents.filter((a) => !a.archived_at).map((a) => a.id),
+  );
+  let latest: ChatSession | null = null;
+  for (const s of sessions) {
+    if (s.status === "archived" || !activeAgentIds.has(s.agent_id)) continue;
+    if (!latest || sessionActivityTime(s) > sessionActivityTime(latest)) latest = s;
+  }
+  return latest?.agent_id ?? null;
 }
 
 /**
