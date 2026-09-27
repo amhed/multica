@@ -1,28 +1,85 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { QuotaProvider, QuotaResource } from "@multica/core/api/schemas";
+import type { QuotaProvider, QuotaResource, QuotaSnapshot } from "@multica/core/api/schemas";
 import { quotaOptions } from "@multica/core/quota/queries";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@multica/ui/components/ui/hover-card";
 import { Progress, ProgressLabel, ProgressValue } from "@multica/ui/components/ui/progress";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../i18n";
+import { ProviderLogo } from "../runtimes/components/provider-logo";
 
 /**
- * Sidebar footer strip showing how much of each AI provider's quota is spent.
+ * Compact, always-visible strip showing how much of each AI provider's quota
+ * is spent: a logo per provider with one figure per consumption window
+ * (session over weekly when both exist). Hovering opens the full breakdown.
  *
  * Fed by the host-side collector snapshot relayed at GET /api/quota. Renders
  * nothing when the server has no snapshot, so deployments without a collector
- * see no empty box. Consumption windows (session, weekly) become bars;
- * balance resources (credits) become a single number. Unknown resource kinds
- * are skipped rather than guessed at.
+ * see no empty box. Balance resources (credits) stand in only for providers
+ * without a consumption window. Unknown resource kinds are skipped rather
+ * than guessed at.
  */
-export function QuotaMeter() {
+export function QuotaMeter({ className }: { className?: string }) {
   const { t } = useT("layout");
   const { data } = useQuery(quotaOptions());
-  const providers = data && typeof data === "object" && !Array.isArray(data) ? data.providers : undefined;
-  if (!providers) return null;
-  const entries = Object.entries(providers).filter(([, p]) => Object.keys(p.resources ?? {}).length > 0);
-  if (entries.length === 0) return null;
+  const snapshot = data && typeof data === "object" && !Array.isArray(data) ? data : undefined;
+  const entries = providerEntries(snapshot);
+  if (!snapshot || entries.length === 0) return null;
+
+  return (
+    <HoverCard>
+      <HoverCardTrigger
+        render={<button type="button" />}
+        aria-label={t(($) => $.sidebar.quota.title)}
+        className={cn(
+          "flex min-w-0 cursor-default items-center gap-3 rounded-md px-1.5 py-1 tabular-nums outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+          snapshot.stale === true && "opacity-60",
+          className,
+        )}
+      >
+        {entries.map(([key, provider]) => (
+          <CompactProvider key={key} providerKey={key} provider={provider} />
+        ))}
+      </HoverCardTrigger>
+      <HoverCardContent align="end" className="w-64">
+        <QuotaDetails snapshot={snapshot} />
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+function CompactProvider({ providerKey, provider }: { providerKey: string; provider: QuotaProvider }) {
+  const resources = Object.entries(provider.resources ?? {});
+  const figures = resources.flatMap(([key, r]) => {
+    if (r.kind !== "consumption") return [];
+    const percent = utilizationPercent(r);
+    return percent === null ? [] : [{ key, text: `${Math.round(percent)}%`, className: thresholdTextClass(percent) }];
+  });
+  if (figures.length === 0) {
+    const balance = resources.find(([, r]) => r.kind === "balance");
+    if (balance) figures.push({ key: balance[0], text: formatNumber(balance[1].available), className: null });
+  }
+  if (figures.length === 0) return null;
+
+  return (
+    <span className="flex shrink-0 items-center gap-1" title={provider.displayName}>
+      <ProviderLogo provider={providerKey} className="size-3.5 shrink-0" />
+      <span className={cn("flex flex-col", figures.length > 1 ? "items-end text-micro leading-none" : "text-caption font-medium")}>
+        {figures.map((f) => (
+          <span key={f.key} className={cn(f.className)}>
+            {f.text}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+/** Full per-window breakdown: bars, reset times on hover, and balances. */
+export function QuotaDetails({ snapshot }: { snapshot: QuotaSnapshot }) {
+  const { t } = useT("layout");
+  const entries = providerEntries(snapshot);
 
   const resourceLabel = (key: string) => {
     switch (key) {
@@ -39,8 +96,8 @@ export function QuotaMeter() {
   };
 
   return (
-    <div className="flex flex-col gap-2 px-2 pb-2 text-caption">
-      {data?.stale === true && (
+    <div className="flex flex-col gap-2 text-caption">
+      {snapshot.stale === true && (
         <span className="text-muted-foreground">{t(($) => $.sidebar.quota.stale)}</span>
       )}
       {entries.map(([key, provider]) => (
@@ -53,6 +110,15 @@ export function QuotaMeter() {
       ))}
     </div>
   );
+}
+
+function providerEntries(snapshot: QuotaSnapshot | undefined): [string, QuotaProvider][] {
+  if (!snapshot?.providers) return [];
+  return Object.entries(snapshot.providers).filter(([, p]) => Object.keys(p.resources ?? {}).length > 0);
+}
+
+function thresholdTextClass(percent: number): string | null {
+  return percent >= 90 ? "text-destructive" : percent >= 75 ? "text-warning" : null;
 }
 
 function ProviderRow({
@@ -72,7 +138,7 @@ function ProviderRow({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between gap-2">
-        <span className="truncate font-medium text-sidebar-foreground">{provider.displayName}</span>
+        <span className="truncate font-medium">{provider.displayName}</span>
         {consumption.length === 0 && balances[0] && (
           <span className="shrink-0 text-muted-foreground tabular-nums">
             {formatNumber(balances[0][1].available)} {resourceLabel(balances[0][0])}

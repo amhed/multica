@@ -7,6 +7,7 @@ import { SourceBackfillModal } from "../onboarding";
 import { AppSidebar } from "./app-sidebar";
 import { DashboardGuard } from "./dashboard-guard";
 import { NavigationProgress } from "./navigation-progress";
+import { QuotaMeter } from "./quota-meter";
 import { WorkspacePresencePrefetch } from "./workspace-presence-prefetch";
 import { GlobalShortcuts } from "./global-shortcuts";
 
@@ -37,7 +38,7 @@ export function DashboardLayout({
       <SidebarProvider className="h-svh bg-app-shell">
         <GlobalShortcuts />
         <WorkspacePresencePrefetch />
-        <AppSidebar searchSlot={searchSlot} />
+        <AppSidebar searchSlot={searchSlot} quotaSlot={<QuotaMeter className="self-start px-2" />} />
         <SidebarInset className="relative overflow-hidden">
           <NavigationProgress />
           {children}

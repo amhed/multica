@@ -16,6 +16,7 @@ import {
   AppSidebar,
   GlobalShortcuts,
   NavigationProgress,
+  QuotaMeter,
 } from "@multica/views/layout";
 import { SearchCommand, SearchTrigger } from "@multica/views/search";
 import { FloatingChat } from "@multica/views/chat";
@@ -101,6 +102,12 @@ function MainTopBar({ sidebarMounted }: { sidebarMounted: boolean }) {
         className="relative z-10 flex h-full min-w-0 max-w-full items-center"
       >
         <TabBar />
+      </div>
+      <div
+        className="relative z-10 ml-auto shrink-0 pr-3"
+        style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+      >
+        <QuotaMeter />
       </div>
     </header>
   );

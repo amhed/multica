@@ -1,4 +1,5 @@
 export { AppSidebar } from "./app-sidebar";
+export { QuotaMeter } from "./quota-meter";
 export {
   CollectionPageHeader,
   CollectionPageHeaderAction,
