@@ -15,7 +15,7 @@
  * invalidate `issueKeys.myAll(wsId)` and reach both clients.
  */
 import { queryOptions } from "@tanstack/react-query";
-import { api } from "@/data/api";
+import { listIssuesByCategory } from "./issues";
 import {
   issueKeys,
   type MyIssuesFilter,
@@ -43,9 +43,6 @@ export const myIssueListOptions = (
 ) =>
   queryOptions({
     queryKey: issueKeys.myList(wsId, scope, filter),
-    queryFn: async ({ signal }) => {
-      const res = await api.listIssues(filter, { signal });
-      return res.issues;
-    },
+    queryFn: ({ signal }) => listIssuesByCategory(filter, signal),
     enabled: !!wsId,
   });

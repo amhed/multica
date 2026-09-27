@@ -7,30 +7,55 @@
  * whole subtree with one call when needed.
  */
 import { queryOptions } from "@tanstack/react-query";
+import type { Issue, ListIssuesParams } from "@multica/core/types";
 import { api } from "@/data/api";
+import { STATUS_CATEGORIES } from "@/lib/issue-status";
 import { issueKeys } from "./issue-keys";
 
 export { issueKeys } from "./issue-keys";
 
+/** Server maximum for `GET /api/issues` (`server/internal/handler/issue.go`). */
+export const ISSUE_CATEGORY_PAGE_SIZE = 100;
+
+/**
+ * Fetches the first page of each lifecycle category in parallel and flattens
+ * them in category order. Mirrors web's `fetchFirstPages` in
+ * `packages/core/issues/queries.ts`: one unfiltered request is capped and
+ * ordered by position, and every status change re-ranks an issue to the top
+ * of its new column, so Done would otherwise fill the page and hide open
+ * issues. Mobile has no load-more yet, so each category takes the server max.
+ */
+export async function listIssuesByCategory(
+  params: ListIssuesParams,
+  signal: AbortSignal,
+): Promise<Issue[]> {
+  const responses = await Promise.all(
+    STATUS_CATEGORIES.map((category) =>
+      api.listIssues(
+        {
+          ...params,
+          status_category: category,
+          limit: ISSUE_CATEGORY_PAGE_SIZE,
+          offset: 0,
+        },
+        { signal },
+      ),
+    ),
+  );
+  return responses.flatMap((res) => res.issues);
+}
+
 /**
  * Workspace-wide issue list. Backend filters by `X-Workspace-Slug` header
- * (root CLAUDE.md "All queries filter by workspace_id"), so we pass an
- * empty params object — server returns every issue the user is allowed to
- * see in the current workspace.
+ * (root CLAUDE.md "All queries filter by workspace_id").
  *
- * Cache shape: flat `Issue[]` (we strip `.issues` from the response) so
- * the WS updaters can patch this list with the same shape as
- * myIssueListOptions. Pagination is deferred — web's `IssuesPage` also
- * fetches all in one shot today (`packages/views/issues/components/
- * issues-page.tsx:30`).
+ * Cache shape: flat `Issue[]` so the WS updaters can patch this list with
+ * the same shape as myIssueListOptions.
  */
 export const issueListOptions = (wsId: string | null) =>
   queryOptions({
     queryKey: issueKeys.list(wsId),
-    queryFn: async ({ signal }) => {
-      const res = await api.listIssues({}, { signal });
-      return res.issues;
-    },
+    queryFn: ({ signal }) => listIssuesByCategory({}, signal),
     enabled: !!wsId,
   });
 
