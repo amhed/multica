@@ -7,10 +7,13 @@ import { Button } from "@multica/ui/components/ui/button";
 import { cn } from "@multica/ui/lib/utils";
 import { hostHealthOptions } from "@multica/core/agents";
 import { useAuthStore } from "@multica/core/auth";
+import { useWorkspacePaths } from "@multica/core/paths";
 import { memberListOptions } from "@multica/core/workspace/queries";
-import type { HostHealth } from "@multica/core/types";
+import type { HostHealth, HostProcs } from "@multica/core/types";
 import { useT } from "../../i18n";
+import { AppLink } from "../../navigation";
 import { ReapDialog } from "./reap-dialog";
+import { formatDurationMs } from "./tabs/activity-tab";
 import {
   deriveHostStatus,
   formatKB,
@@ -43,6 +46,71 @@ function Metric({ label, value }: { label: string; value: string }) {
       <dt className="truncate text-muted-foreground">{label}</dt>
       <dd className="truncate font-medium tabular-nums">{value}</dd>
     </div>
+  );
+}
+
+function ProcsUsage({ procs }: { procs: HostProcs }) {
+  const { t } = useT("agents");
+  return (
+    <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
+      {t(($) => $.active_board.host.usage, {
+        memory: formatKB(procs.rss_kb),
+        cpu: `${Math.round(procs.cpu_pct)}%`,
+      })}
+    </span>
+  );
+}
+
+// The command truncates; its age always stays visible.
+function TopCmd({ procs }: { procs: HostProcs }) {
+  if (!procs.top_cmd) return null;
+  return (
+    <div className="flex min-w-0 gap-1 font-mono text-muted-foreground">
+      <span className="truncate" title={procs.top_cmd}>
+        {procs.top_cmd}
+      </span>
+      <span className="shrink-0">· {formatDurationMs(procs.top_cmd_age_s * 1000)}</span>
+    </div>
+  );
+}
+
+// Where the host's memory and CPU are going: this workspace's running tasks,
+// largest first, then processes no running task owns.
+function HostTasks({ host }: { host: HostHealth }) {
+  const { t } = useT("agents");
+  const p = useWorkspacePaths();
+  if (host.tasks.length === 0 && !host.stale) return null;
+  return (
+    <ul className="flex min-w-0 flex-col gap-2 text-caption">
+      {host.tasks.map((task) => (
+        <li key={task.task_id} className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 items-center gap-2">
+            {task.issue_id && task.issue_identifier && (
+              <AppLink
+                href={p.issueDetail(task.issue_id)}
+                className="shrink-0 font-mono text-label text-muted-foreground hover:underline"
+              >
+                {task.issue_identifier}
+              </AppLink>
+            )}
+            <span className="truncate font-medium">{task.agent_name}</span>
+            <ProcsUsage procs={task} />
+          </div>
+          <TopCmd procs={task} />
+        </li>
+      ))}
+      {host.stale && (
+        <li className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate font-medium">
+              {t(($) => $.active_board.host.stale, { count: host.stale.procs })}
+            </span>
+            <ProcsUsage procs={host.stale} />
+          </div>
+          <TopCmd procs={host.stale} />
+        </li>
+      )}
+    </ul>
   );
 }
 
@@ -118,6 +186,7 @@ function HostRow({
           </>
         )}
       </dl>
+      <HostTasks host={host} />
       {showReapAction && (
         <Button variant="outline" size="sm" onClick={() => setReapOpen(true)}>
           {t(($) => $.active_board.host.reap.action)}
@@ -135,7 +204,7 @@ function HostRow({
  * above the Active grid. It polls its own endpoint (host metrics do not ride
  * the task-event WebSocket). An empty list renders a muted "unavailable" line
  * rather than an error, so a workspace with no connected daemon degrades
- * quietly. The expandable per-process detail is a planned phase-2 addition.
+ * quietly.
  */
 export function HealthCard({ wsId }: { wsId: string }) {
   const { t } = useT("agents");

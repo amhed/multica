@@ -651,6 +651,11 @@ type Daemon struct {
 	// hostSampler keeps the previous /proc counters so each heartbeat can
 	// report CPU and swap rates, not just cumulative totals.
 	hostSampler *hostSampler
+	// hostTasks lists running tasks for the host-health process walk, keyed
+	// by task id. Registered for the provider execution window, alongside
+	// repoCheckoutTasks.
+	hostTasksMu sync.Mutex
+	hostTasks   map[string]hostTask
 
 	// localPathLocks serialises agent tasks whose project resource is a
 	// local_directory pinned to this daemon. Two tasks targeting the same
@@ -720,7 +725,7 @@ func New(cfg Config, logger *slog.Logger) *Daemon {
 		skillCache:                  NewSkillBundleCache(skillCacheRoot),
 		logger:                      logger,
 		terminalReports:             newTerminalReportStore(cfg),
-		hostSampler:                 newHostSampler(),
+		hostSampler:                 newHostSampler(cfg.WorkspacesRoot),
 		terminalReportWakeup:        make(chan struct{}, 1),
 		terminalReportNow:           time.Now,
 		terminalReportFlight:        make(map[string]struct{}),
@@ -8760,6 +8765,15 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		WorkDir:     env.WorkDir,
 	})
 	defer d.clearActiveRepoCheckoutTask(agentToken)
+	d.registerHostTask(hostTask{
+		TaskID:          task.ID,
+		WorkspaceID:     task.WorkspaceID,
+		IssueID:         task.IssueID,
+		IssueIdentifier: task.IssueIdentifier,
+		AgentName:       task.Agent.Name,
+		RootDir:         env.RootDir,
+	})
+	defer d.clearHostTask(task.ID)
 
 	taskLog.Debug("invoking backend",
 		"provider", provider,

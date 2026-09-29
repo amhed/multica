@@ -2071,10 +2071,27 @@ export const AgentActivityBucketListSchema = z.array(z.object({
 
 export const AgentTaskListSchema = z.array(AgentTaskSchema);
 
+const hostProcsShape = {
+  procs: z.number().default(0),
+  rss_kb: z.number().default(0),
+  cpu_pct: z.number().default(0),
+  top_cmd: z.string().default(""),
+  top_cmd_age_s: z.number().default(0),
+};
+
+const HostTaskSchema = z.object({
+  task_id: z.string().default(""),
+  workspace_id: z.string().default(""),
+  issue_id: z.string().default(""),
+  issue_identifier: z.string().default(""),
+  agent_name: z.string().default(""),
+  ...hostProcsShape,
+}).loose();
+
 // Machine-wide host health from a daemon. Numeric fields default to 0 so a
 // partial server payload degrades to a benign (green) reading rather than
-// failing the whole response. `.loose()` lets phase-2 fields (stale_procs,
-// top[]) pass through before this schema knows about them.
+// failing the whole response. `.loose()` lets newer fields pass through
+// before this schema knows about them.
 export const HostHealthSchema = z.object({
   daemon_id: z.string().default(""),
   device_name: z.string().default(""),
@@ -2092,6 +2109,8 @@ export const HostHealthSchema = z.object({
   procs_blocked: z.number().nullable().default(null),
   cgroup_mem_current_kb: z.number().default(0),
   cgroup_mem_limit_kb: z.number().default(0),
+  tasks: z.array(HostTaskSchema).default([]),
+  stale: z.object(hostProcsShape).loose().nullable().default(null),
 }).loose();
 
 export const HostHealthResponseSchema = z.object({

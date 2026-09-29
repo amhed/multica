@@ -24,7 +24,7 @@ func TestHostSampler_FirstSampleHasNoRates(t *testing.T) {
 	writeSamplerProc(t, dir, "100 0 100 800 0 0 0 0", 2, 10, 20)
 	s := &hostSampler{procRoot: dir, cgroupRoot: t.TempDir(), pageSize: 4096}
 
-	h, ok := s.sample(time.Unix(1000, 0))
+	h, ok := s.sample(time.Unix(1000, 0), nil)
 	if !ok {
 		t.Fatal("expected ok=true")
 	}
@@ -44,14 +44,14 @@ func TestHostSampler_ComputesRatesFromDeltas(t *testing.T) {
 	// user nice system idle iowait irq softirq steal
 	writeSamplerProc(t, dir, "100 0 100 800 0 0 0 0", 0, 1000, 2000)
 	s := &hostSampler{procRoot: dir, cgroupRoot: t.TempDir(), pageSize: 4096}
-	s.sample(time.Unix(1000, 0))
+	s.sample(time.Unix(1000, 0), nil)
 
 	// +300 busy (user 200, system 100), +100 idle split across idle and
 	// iowait: 300 of 400 ticks busy = 75%. iowait counts as idle because a
 	// CPU waiting on disk is not doing work.
 	// +2560 pages swapped in over 10s at 4 KiB/page = 1024 KiB/s.
 	writeSamplerProc(t, dir, "300 0 200 850 50 0 0 0", 1, 1000+2560, 2000+256)
-	h, ok := s.sample(time.Unix(1010, 0))
+	h, ok := s.sample(time.Unix(1010, 0), nil)
 	if !ok {
 		t.Fatal("expected ok=true")
 	}
@@ -76,12 +76,12 @@ func TestHostSampler_ReusesSampleWithinOneSecond(t *testing.T) {
 	dir := t.TempDir()
 	writeSamplerProc(t, dir, "100 0 100 800 0 0 0 0", 0, 0, 0)
 	s := &hostSampler{procRoot: dir, cgroupRoot: t.TempDir(), pageSize: 4096}
-	s.sample(time.Unix(1000, 0))
+	s.sample(time.Unix(1000, 0), nil)
 	writeSamplerProc(t, dir, "200 0 100 800 0 0 0 0", 0, 0, 0)
-	first, _ := s.sample(time.Unix(1010, 0))
+	first, _ := s.sample(time.Unix(1010, 0), nil)
 
 	writeSamplerProc(t, dir, "900 0 100 800 0 0 0 0", 0, 0, 0)
-	again, _ := s.sample(time.Unix(1010, 500_000_000))
+	again, _ := s.sample(time.Unix(1010, 500_000_000), nil)
 	if again != first {
 		t.Fatalf("expected the cached sample within 1s, got a new one: %+v", again)
 	}
@@ -89,7 +89,7 @@ func TestHostSampler_ReusesSampleWithinOneSecond(t *testing.T) {
 
 func TestHostSampler_MissingProcFiles(t *testing.T) {
 	s := &hostSampler{procRoot: t.TempDir(), cgroupRoot: t.TempDir(), pageSize: 4096}
-	if _, ok := s.sample(time.Unix(1000, 0)); ok {
+	if _, ok := s.sample(time.Unix(1000, 0), nil); ok {
 		t.Fatal("expected ok=false when /proc files are absent")
 	}
 }
@@ -101,8 +101,8 @@ func TestHostSampler_MissingRateFilesKeepsBaseFields(t *testing.T) {
 	writeProc(t, dir, "loadavg", "1.00 2.00 3.00 1/100 1234\n")
 	writeProc(t, dir, "meminfo", "MemTotal: 8000000 kB\nMemAvailable: 4000000 kB\n")
 	s := &hostSampler{procRoot: dir, cgroupRoot: t.TempDir(), pageSize: 4096}
-	s.sample(time.Unix(1000, 0))
-	h, ok := s.sample(time.Unix(1010, 0))
+	s.sample(time.Unix(1000, 0), nil)
+	h, ok := s.sample(time.Unix(1010, 0), nil)
 	if !ok {
 		t.Fatal("expected ok=true")
 	}
@@ -146,7 +146,7 @@ func TestHostSampler_CgroupMemoryUsesTightestLimit(t *testing.T) {
 				"memory.max":     tc.max,
 			})
 			s := &hostSampler{procRoot: dir, cgroupRoot: cg, pageSize: 4096}
-			h, _ := s.sample(time.Unix(1000, 0))
+			h, _ := s.sample(time.Unix(1000, 0), nil)
 			if h.CgroupMemCurrentKB != 4139440 {
 				t.Fatalf("cgroup_mem_current_kb: got %d, want 4139440", h.CgroupMemCurrentKB)
 			}
@@ -161,7 +161,7 @@ func TestHostSampler_NoCgroupV2LeavesMemoryUnset(t *testing.T) {
 	dir := t.TempDir()
 	writeSamplerProc(t, dir, "100 0 100 800 0 0 0 0", 0, 0, 0)
 	s := &hostSampler{procRoot: dir, cgroupRoot: t.TempDir(), pageSize: 4096}
-	h, _ := s.sample(time.Unix(1000, 0))
+	h, _ := s.sample(time.Unix(1000, 0), nil)
 	if h.CgroupMemCurrentKB != 0 || h.CgroupMemLimitKB != 0 {
 		t.Fatalf("expected no cgroup memory without /proc/self/cgroup: %+v", h)
 	}

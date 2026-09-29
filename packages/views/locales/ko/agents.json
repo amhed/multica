@@ -971,6 +971,8 @@
       "load_1m": "부하(1분)",
       "swap_activity": "스왑 입력 / 출력",
       "agent_memory": "에이전트 메모리",
+      "usage": "{{memory}} · CPU {{cpu}}",
+      "stale_other": "고아 프로세스 {{count}}개(30분 이상)",
       "status": {
         "green": "정상",
         "amber": "부하 높음",

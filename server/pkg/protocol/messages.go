@@ -428,6 +428,36 @@ type DaemonHost struct {
 	// unlimited or not visible (no cgroup v2).
 	CgroupMemCurrentKB uint64 `json:"cgroup_mem_current_kb,omitempty"`
 	CgroupMemLimitKB   uint64 `json:"cgroup_mem_limit_kb,omitempty"`
+
+	// Tasks attributes processes to the running tasks whose working
+	// directory they run in. It spans every workspace the daemon serves; the
+	// backend filters it to the requesting workspace before responding.
+	Tasks []DaemonHostTask `json:"tasks,omitempty"`
+	// Stale sums processes left in the workspaces root by no running task,
+	// older than the reaper's default age; nil when there are none.
+	Stale *DaemonHostProcs `json:"stale,omitempty"`
+}
+
+// DaemonHostProcs aggregates a group of processes. CPUPct is the group's
+// share of the whole machine over the last sample interval. TopCmd is the
+// largest process by memory, reduced to its executable, flags and short
+// subcommand words (no argument values).
+type DaemonHostProcs struct {
+	Procs      int     `json:"procs"`
+	RSSKB      uint64  `json:"rss_kb"`
+	CPUPct     float64 `json:"cpu_pct"`
+	TopCmd     string  `json:"top_cmd,omitempty"`
+	TopCmdAgeS int64   `json:"top_cmd_age_s,omitempty"`
+}
+
+// DaemonHostTask is the process footprint of one running task.
+type DaemonHostTask struct {
+	TaskID          string `json:"task_id"`
+	WorkspaceID     string `json:"workspace_id"`
+	IssueID         string `json:"issue_id,omitempty"`
+	IssueIdentifier string `json:"issue_identifier,omitempty"`
+	AgentName       string `json:"agent_name,omitempty"`
+	DaemonHostProcs
 }
 
 // DaemonHeartbeatAckPayload is the server's reply to DaemonHeartbeatRequestPayload.

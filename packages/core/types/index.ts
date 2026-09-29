@@ -27,6 +27,8 @@ export type {
   AgentActivityBucket,
   AgentRunCount,
   HostHealth,
+  HostProcs,
+  HostTask,
   HostHealthResponse,
   HostReapProcess,
   HostReapResult,

@@ -894,7 +894,8 @@ type HostHealthEntry struct {
 
 // WorkspaceHostHealth returns the latest host snapshot from each daemon
 // connected for the workspace, deduped by daemon id. Connections that have
-// not reported a snapshot yet are omitted.
+// not reported a snapshot yet are omitted. A daemon can serve several
+// workspaces, so its per-task rows are narrowed to this workspace's.
 func (h *Hub) WorkspaceHostHealth(workspaceID string) []HostHealthEntry {
 	h.mu.RLock()
 	clients := make([]*client, 0, len(h.byWorkspace[workspaceID]))
@@ -915,7 +916,14 @@ func (h *Hub) WorkspaceHostHealth(workspaceID string) []HostHealthEntry {
 			continue
 		}
 		seen[id] = struct{}{}
-		out = append(out, HostHealthEntry{DaemonID: id, Host: *host})
+		scoped := *host
+		scoped.Tasks = nil
+		for _, t := range host.Tasks {
+			if t.WorkspaceID == workspaceID {
+				scoped.Tasks = append(scoped.Tasks, t)
+			}
+		}
+		out = append(out, HostHealthEntry{DaemonID: id, Host: scoped})
 	}
 	return out
 }

@@ -63,3 +63,41 @@ func TestHostHealthAndReapRouting_PATDaemon(t *testing.T) {
 		t.Fatal("RuntimeForDaemon matched an empty daemon id")
 	}
 }
+
+// A daemon serving several workspaces reports every running task; a
+// workspace's host health must only carry its own tasks.
+func TestWorkspaceHostHealth_FiltersTasksToWorkspace(t *testing.T) {
+	h := &Hub{byWorkspace: map[string]map[*client]bool{}}
+	c := &client{identity: ClientIdentity{DaemonID: "shared"}}
+	c.setHost(&protocol.DaemonHost{
+		NCPU: 4,
+		Tasks: []protocol.DaemonHostTask{
+			{TaskID: "t1", WorkspaceID: "ws-1", IssueIdentifier: "PAI-322"},
+			{TaskID: "t2", WorkspaceID: "ws-2", IssueIdentifier: "CAR-9"},
+			{TaskID: "t3", WorkspaceID: "ws-1", IssueIdentifier: "PAI-297"},
+		},
+		Stale: &protocol.DaemonHostProcs{Procs: 2},
+	})
+	h.byWorkspace["ws-1"] = map[*client]bool{c: true}
+	h.byWorkspace["ws-2"] = map[*client]bool{c: true}
+
+	got := h.WorkspaceHostHealth("ws-1")
+	if len(got) != 1 {
+		t.Fatalf("expected 1 host, got %d", len(got))
+	}
+	tasks := got[0].Host.Tasks
+	if len(tasks) != 2 || tasks[0].TaskID != "t1" || tasks[1].TaskID != "t3" {
+		t.Fatalf("ws-1 tasks = %+v, want t1 and t3", tasks)
+	}
+	if got[0].Host.Stale == nil || got[0].Host.Stale.Procs != 2 {
+		t.Fatalf("host-wide stale group should pass through: %+v", got[0].Host.Stale)
+	}
+
+	if other := h.WorkspaceHostHealth("ws-2")[0].Host.Tasks; len(other) != 1 || other[0].TaskID != "t2" {
+		t.Fatalf("ws-2 tasks = %+v, want t2", other)
+	}
+	// Filtering must not mutate the stored snapshot another workspace reads.
+	if stored := c.getHost().Tasks; len(stored) != 3 {
+		t.Fatalf("stored snapshot was mutated: %+v", stored)
+	}
+}
