@@ -39,6 +39,16 @@ function renderCard() {
   );
 }
 
+// A daemon that predates the saturation signals.
+const NOT_MEASURED = {
+  cpu_busy_pct: null,
+  swap_in_kbps: null,
+  swap_out_kbps: null,
+  procs_blocked: null,
+  cgroup_mem_current_kb: 0,
+  cgroup_mem_limit_kb: 0,
+};
+
 const redHost: HostHealth = {
   daemon_id: "d1",
   device_name: "tinydevs-droplet",
@@ -50,6 +60,7 @@ const redHost: HostHealth = {
   mem_available_kb: 1_000_000,
   swap_total_kb: 4_000_000,
   swap_free_kb: 0,
+  ...NOT_MEASURED,
 };
 
 const greenHost: HostHealth = {
@@ -63,6 +74,28 @@ const greenHost: HostHealth = {
   mem_available_kb: 8_000_000,
   swap_total_kb: 4_000_000,
   swap_free_kb: 4_000_000,
+  ...NOT_MEASURED,
+};
+
+// moni-hermes five minutes after a restart: load15 still 16 on 4 cores, but
+// the CPU is idle and nothing is paging.
+const measuredHost: HostHealth = {
+  daemon_id: "d3",
+  device_name: "moni-hermes",
+  ncpu: 4,
+  load1: 0.26,
+  load5: 7.19,
+  load15: 16.22,
+  mem_total_kb: 24_000_000,
+  mem_available_kb: 15_600_000,
+  swap_total_kb: 11_000_000,
+  swap_free_kb: 7_400_000,
+  cpu_busy_pct: 4,
+  swap_in_kbps: 0,
+  swap_out_kbps: 102.4,
+  procs_blocked: 0,
+  cgroup_mem_current_kb: 6_291_456,
+  cgroup_mem_limit_kb: 15_728_640,
 };
 
 beforeEach(() => {
@@ -86,6 +119,26 @@ describe("HealthCard", () => {
     expect(screen.getByText("65.00 / 8")).toBeTruthy(); // load15 / ncpu
     expect(screen.getByText("94%")).toBeTruthy(); // memory used (1 - 1/16)
     expect(screen.getByText("100%")).toBeTruthy(); // swap used
+  });
+
+  it("shows current signals, not the lagging load15, for a daemon that reports rates", () => {
+    queryState.current = { data: { hosts: [measuredHost] }, isLoading: false };
+    renderCard();
+    expect(screen.getByText("Healthy")).toBeTruthy();
+    expect(screen.getByText("4%")).toBeTruthy(); // CPU busy
+    expect(screen.getByText("0.26 / 4")).toBeTruthy(); // load1 / ncpu
+    expect(screen.queryByText("16.22 / 4")).toBeNull();
+    expect(screen.getByText("0 KB/s / 102 KB/s")).toBeTruthy(); // swap in / out
+    expect(screen.getByText("6.0 GB / 15.0 GB")).toBeTruthy(); // agent memory / cgroup limit
+  });
+
+  it("shows agent memory without a limit when none is visible", () => {
+    queryState.current = {
+      data: { hosts: [{ ...measuredHost, cgroup_mem_limit_kb: 0 }] },
+      isLoading: false,
+    };
+    renderCard();
+    expect(screen.getByText("6.0 GB")).toBeTruthy();
   });
 
   it("shows a skeleton while loading", () => {

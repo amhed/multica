@@ -989,6 +989,10 @@
       "load": "Charge",
       "memory": "Mémoire",
       "swap": "Swap",
+      "cpu": "CPU",
+      "load_1m": "Charge (1 min)",
+      "swap_activity": "Swap entrée / sortie",
+      "agent_memory": "Mémoire des agents",
       "status": {
         "green": "Sain",
         "amber": "Sous pression",

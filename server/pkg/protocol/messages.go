@@ -404,9 +404,8 @@ type DaemonHeartbeatRequestPayload struct {
 
 // DaemonHost is a point-in-time, machine-wide health snapshot collected from
 // the host the daemon runs on (load average, memory, swap). All *_kb fields
-// are kibibytes, mirroring /proc/meminfo. It carries no per-process detail in
-// phase 1; a stale-process count and top-offenders list are a planned
-// addition (see the server-health design spec).
+// are kibibytes, mirroring /proc/meminfo. Per-task process detail is a
+// planned addition (see the server-health design spec).
 type DaemonHost struct {
 	NCPU           int     `json:"ncpu"`
 	Load1          float64 `json:"load1"`
@@ -416,6 +415,19 @@ type DaemonHost struct {
 	MemAvailableKB uint64  `json:"mem_available_kb"`
 	SwapTotalKB    uint64  `json:"swap_total_kb"`
 	SwapFreeKB     uint64  `json:"swap_free_kb"`
+
+	// Saturation signals. Rates cover the interval since the daemon's previous
+	// sample, so they are nil on its first one; nil (absent) means "not
+	// measured", which older daemons also produce, while 0 is a real reading.
+	CPUBusyPct   *float64 `json:"cpu_busy_pct,omitempty"`
+	SwapInKBps   *float64 `json:"swap_in_kbps,omitempty"`
+	SwapOutKBps  *float64 `json:"swap_out_kbps,omitempty"`
+	ProcsBlocked *int     `json:"procs_blocked,omitempty"`
+	// Memory of the daemon's own cgroup, which holds every agent process it
+	// spawns. The limit is the tightest of memory.high/memory.max; 0 means
+	// unlimited or not visible (no cgroup v2).
+	CgroupMemCurrentKB uint64 `json:"cgroup_mem_current_kb,omitempty"`
+	CgroupMemLimitKB   uint64 `json:"cgroup_mem_limit_kb,omitempty"`
 }
 
 // DaemonHeartbeatAckPayload is the server's reply to DaemonHeartbeatRequestPayload.

@@ -23,3 +23,17 @@ Rendered as the first child inside the board's scroll region (with `mb-4`) rathe
 
 ## Phase 1 scope
 Load/memory/swap only. No `/proc` process walker, no `stale_procs`/`top[]`. The schema is `.loose()` and the contract has a documented slot so phase 2 adds fields without a breaking change.
+
+## Phase 2a: saturation signals replace load15 as the status driver (2026-09-29)
+On moni-hermes the card read "16.22 / 4" (red) five minutes after a daemon restart while the CPU was 98% idle and nothing was paging: load15 lags by ~15 minutes and counts processes waiting on disk, and swap occupancy stays high long after pressure ends.
+The daemon now keeps its previous `/proc/stat` and `/proc/vmstat` counters (`hostsampler.go`) and reports CPU busy %, swap in/out KB/s, blocked processes, and its own cgroup's memory against the tightest of `memory.high`/`memory.max`.
+
+## Status thresholds with rates
+Swap-in > 1 MB/s amber, > 10 MB/s red; daemon cgroup memory >= 80% of its limit amber, > 95% red; CPU >= 90% amber only (a busy build is not a fault).
+Daemons without rates (older builds, or a daemon's first sample) keep the load15 + swap-used rule, so there is no version coupling.
+
+## Rates are nil on the first sample and cached within 1s
+A rate needs two samples, so the first beat after start carries none (and the card falls back to the legacy rule for one tick). Concurrent heartbeat connections within a second reuse the previous sample instead of computing a rate over a near-zero window.
+
+## Containerized daemons see only their own cgroup
+With a private cgroup namespace (rootless podman on moni-hermes) the daemon sees the container's `memory.max` (18 GiB) but not a tighter `MemoryHigh` set on the parent systemd unit (15 GiB). The card shows what the daemon can see; aligning the container limit with the unit limit is a deploy-side fix.

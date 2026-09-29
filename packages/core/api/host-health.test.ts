@@ -27,7 +27,32 @@ async function read(body: unknown) {
 
 describe("host health API", () => {
   it("passes a well-formed host through", async () => {
-    expect(await read({ hosts: [host] })).toEqual({ hosts: [host] });
+    const measured = {
+      ...host,
+      cpu_busy_pct: 42.5,
+      swap_in_kbps: 0,
+      swap_out_kbps: 102.4,
+      procs_blocked: 3,
+      cgroup_mem_current_kb: 6_000_000,
+      cgroup_mem_limit_kb: 15_728_640,
+    };
+    expect(await read({ hosts: [measured] })).toEqual({ hosts: [measured] });
+  });
+
+  it("marks saturation signals as not measured for an older daemon", async () => {
+    expect(await read({ hosts: [host] })).toEqual({
+      hosts: [
+        {
+          ...host,
+          cpu_busy_pct: null,
+          swap_in_kbps: null,
+          swap_out_kbps: null,
+          procs_blocked: null,
+          cgroup_mem_current_kb: 0,
+          cgroup_mem_limit_kb: 0,
+        },
+      ],
+    });
   });
 
   it("defaults a missing hosts field to an empty list", async () => {

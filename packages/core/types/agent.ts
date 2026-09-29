@@ -229,8 +229,8 @@ export interface AgentRunCount {
 
 // Machine-wide health of a daemon host serving the workspace (load, memory,
 // swap). Reported on daemon heartbeats and surfaced by the Active board's
-// health card. All *_kb fields are kibibytes (from /proc/meminfo). Phase 2
-// will add a stale-process count and top-offenders list.
+// health card. All *_kb fields are kibibytes (from /proc/meminfo). Per-task
+// process detail is a planned addition.
 export interface HostHealth {
   daemon_id: string;
   device_name: string;
@@ -242,6 +242,16 @@ export interface HostHealth {
   mem_available_kb: number;
   swap_total_kb: number;
   swap_free_kb: number;
+  // Saturation signals over the daemon's last sample interval; null when the
+  // daemon does not measure them (older daemon, or its first sample).
+  cpu_busy_pct: number | null;
+  swap_in_kbps: number | null;
+  swap_out_kbps: number | null;
+  procs_blocked: number | null;
+  // Memory of the daemon's cgroup (all its agent processes) and the limit
+  // that throttles it; 0 when not visible or unlimited.
+  cgroup_mem_current_kb: number;
+  cgroup_mem_limit_kb: number;
 }
 
 export interface HostHealthResponse {
