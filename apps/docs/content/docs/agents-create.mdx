@@ -135,6 +135,9 @@ Do not put credentials or other secrets in custom arguments. They remain in the 
 
 MCP configuration may contain tokens; its storage and display rules match environment variables. Only runtimes that support managed MCP configuration show this section; tools without MCP support don't gain it just because a configuration is saved.
 
+To keep a token in environment variables instead, write `${NAME}` (or `${NAME:-default}`) in a server's `command`, `args`, `env`, `url`, or `headers`.
+When a task starts it is filled from the agent's own environment variables, on every runtime; a name the agent doesn't have is left as written.
+
 ## Duplicating an agent
 
 Duplicating carries over most working configuration except the name, including instructions, conversation starters, skills, custom arguments, avatar, concurrency limit, and Access settings. The model, thinking level, and service tier come along too; if the original runtime is unavailable and the copy is forced onto another runtime, those three are cleared and must be re-selected.

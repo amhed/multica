@@ -7933,7 +7933,14 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		}
 	}
 	if task.Agent != nil {
-		agentMcpConfig = task.Agent.McpConfig
+		var unresolvedMcpEnv []string
+		agentMcpConfig, unresolvedMcpEnv = expandAgentMcpConfigForProvider(provider, task.Agent.McpConfig, task.Agent.CustomEnv)
+		if len(unresolvedMcpEnv) > 0 {
+			taskLog.Warn("mcp_config: ${VAR} references not set in the agent's environment variables; left as-is",
+				"provider", provider,
+				"variables", unresolvedMcpEnv,
+			)
+		}
 		effectiveMcpConfig = agentMcpConfig
 		if merged, mergeErr := mergeRuntimeAndAgentMcpConfig(provider, agentMcpConfig); mergeErr != nil {
 			taskLog.Warn("mcp_config: runtime merge failed; using agent configuration only",
