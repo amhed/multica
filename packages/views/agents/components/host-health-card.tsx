@@ -61,12 +61,15 @@ function ProcsUsage({ procs }: { procs: HostProcs }) {
   );
 }
 
+// The command truncates; its age always stays visible.
 function TopCmd({ procs }: { procs: HostProcs }) {
   if (!procs.top_cmd) return null;
-  const text = `${procs.top_cmd} · ${formatDurationMs(procs.top_cmd_age_s * 1000)}`;
   return (
-    <div className="truncate font-mono text-muted-foreground" title={text}>
-      {text}
+    <div className="flex min-w-0 gap-1 font-mono text-muted-foreground">
+      <span className="truncate" title={procs.top_cmd}>
+        {procs.top_cmd}
+      </span>
+      <span className="shrink-0">· {formatDurationMs(procs.top_cmd_age_s * 1000)}</span>
     </div>
   );
 }

@@ -186,7 +186,8 @@ describe("HealthCard", () => {
     expect(link.getAttribute("href")).toBe("/acme/issues/issue-322");
     expect(screen.getByText("Codex Senior Dev")).toBeTruthy();
     expect(screen.getByText("14.5 GB · 72% CPU")).toBeTruthy();
-    expect(screen.getByText("tsgo --noEmit · 4h 31m")).toBeTruthy();
+    expect(screen.getByText("tsgo --noEmit")).toBeTruthy();
+    expect(screen.getByText("· 4h 31m")).toBeTruthy();
   });
 
   it("shows orphaned processes left by finished tasks", () => {
@@ -194,7 +195,8 @@ describe("HealthCard", () => {
     renderCard();
     expect(screen.getByText("3 orphaned processes (30+ min)")).toBeTruthy();
     expect(screen.getByText("1.0 GB · 0% CPU")).toBeTruthy();
-    expect(screen.getByText("eslint · 2h 0m")).toBeTruthy();
+    expect(screen.getByText("eslint")).toBeTruthy();
+    expect(screen.getByText("· 2h 0m")).toBeTruthy();
   });
 
   it("renders no task list when nothing is running", () => {
