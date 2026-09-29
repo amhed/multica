@@ -35,8 +35,34 @@ describe("host health API", () => {
       procs_blocked: 3,
       cgroup_mem_current_kb: 6_000_000,
       cgroup_mem_limit_kb: 15_728_640,
+      tasks: [
+        {
+          task_id: "t1",
+          workspace_id: "ws-1",
+          issue_id: "i1",
+          issue_identifier: "PAI-322",
+          agent_name: "Claude Senior Dev",
+          procs: 9,
+          rss_kb: 15_204_352,
+          cpu_pct: 71.6,
+          top_cmd: "tsgo --noEmit",
+          top_cmd_age_s: 16_260,
+        },
+      ],
+      stale: { procs: 3, rss_kb: 1_048_576, cpu_pct: 0, top_cmd: "eslint", top_cmd_age_s: 7_200 },
     };
     expect(await read({ hosts: [measured] })).toEqual({ hosts: [measured] });
+  });
+
+  it("fills defaults for a partial task row rather than dropping the host", async () => {
+    const result = await read({ hosts: [{ ...host, tasks: [{ task_id: "t1" }] }] });
+    expect(result.hosts[0]?.tasks[0]).toMatchObject({
+      task_id: "t1",
+      issue_identifier: "",
+      procs: 0,
+      rss_kb: 0,
+      top_cmd: "",
+    });
   });
 
   it("marks saturation signals as not measured for an older daemon", async () => {
@@ -50,6 +76,8 @@ describe("host health API", () => {
           procs_blocked: null,
           cgroup_mem_current_kb: 0,
           cgroup_mem_limit_kb: 0,
+          tasks: [],
+          stale: null,
         },
       ],
     });

@@ -37,3 +37,18 @@ A rate needs two samples, so the first beat after start carries none (and the ca
 
 ## Containerized daemons see only their own cgroup
 With a private cgroup namespace (rootless podman on moni-hermes) the daemon sees the container's `memory.max` (18 GiB) but not a tighter `MemoryHigh` set on the parent systemd unit (15 GiB). The card shows what the daemon can see; aligning the container limit with the unit limit is a deploy-side fix.
+
+## Phase 2b: per-task process breakdown instead of a flat top[] list (2026-09-29)
+The spec sketched `stale_procs` + `top[{pid, age_s, pcpu, workspace, cmd}]`. What an operator needed during the PAI-322 thrash was "which issue is eating the box", so the host block carries `tasks[]` (one row per running task: issue key, agent, process count, RSS, CPU share, largest command) plus a single `stale` aggregate. Pids are not sent; the reaper already owns per-process selection.
+
+## Attribution is by working directory
+A process belongs to the running task whose env root contains its cwd (path-segment match), which also catches detached children that a process-tree walk from the agent pid would lose. A process that chdirs outside its task dir is missed. Orphans under the workspaces root are "stale" at the reaper's 30-minute default age.
+
+## CPU share is ticks over machine ticks
+Per-process utime+stime deltas are divided by the `/proc/stat` total delta, so CPU is a share of the whole machine and needs no CLK_TCK. Start times still use USER_HZ=100, a fixed kernel ABI constant. RSS is summed per group, so shared pages count once per process.
+
+## Command lines are reduced, never sent raw
+`sanitizeCmdline` keeps the executable (and an interpreter's script) base name plus up to four distinct flags and short lowercase words; flag values (`--token=x`, `-pSecret`), paths, ids and prompts are dropped.
+
+## Tasks are filtered to the requesting workspace in the hub
+A daemon can serve several workspaces and reports every running task. `Hub.WorkspaceHostHealth` narrows `tasks` to the requested workspace on a copy of the stored snapshot. The `stale` aggregate stays host-wide, like the reaper preview.

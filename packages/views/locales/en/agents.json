@@ -993,6 +993,9 @@
       "load_1m": "Load (1m)",
       "swap_activity": "Swap in / out",
       "agent_memory": "Agent memory",
+      "usage": "{{memory}} · {{cpu}} CPU",
+      "stale_one": "{{count}} orphaned process (30+ min)",
+      "stale_other": "{{count}} orphaned processes (30+ min)",
       "status": {
         "green": "Healthy",
         "amber": "Under pressure",

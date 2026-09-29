@@ -227,10 +227,29 @@ export interface AgentRunCount {
   run_count: number;
 }
 
+// A group of processes on a daemon host. cpu_pct is the group's share of the
+// whole machine over the last sample; top_cmd is its largest process by
+// memory, reduced to executable, flags and short subcommand words.
+export interface HostProcs {
+  procs: number;
+  rss_kb: number;
+  cpu_pct: number;
+  top_cmd: string;
+  top_cmd_age_s: number;
+}
+
+// The processes running in one of this workspace's tasks.
+export interface HostTask extends HostProcs {
+  task_id: string;
+  workspace_id: string;
+  issue_id: string;
+  issue_identifier: string;
+  agent_name: string;
+}
+
 // Machine-wide health of a daemon host serving the workspace (load, memory,
 // swap). Reported on daemon heartbeats and surfaced by the Active board's
-// health card. All *_kb fields are kibibytes (from /proc/meminfo). Per-task
-// process detail is a planned addition.
+// health card. All *_kb fields are kibibytes (from /proc/meminfo).
 export interface HostHealth {
   daemon_id: string;
   device_name: string;
@@ -252,6 +271,10 @@ export interface HostHealth {
   // that throttles it; 0 when not visible or unlimited.
   cgroup_mem_current_kb: number;
   cgroup_mem_limit_kb: number;
+  // This workspace's running tasks, largest memory first.
+  tasks: HostTask[];
+  // Workspace processes no running task owns, older than 30 minutes (host-wide).
+  stale: HostProcs | null;
 }
 
 export interface HostHealthResponse {
