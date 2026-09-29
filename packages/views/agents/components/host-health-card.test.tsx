@@ -28,6 +28,16 @@ vi.mock("@multica/core/auth", () => ({
 vi.mock("@multica/core/workspace/queries", () => ({
   memberListOptions: (wsId: string) => ({ queryKey: ["workspaces", wsId, "members"] }),
 }));
+vi.mock("@multica/core/paths", () => ({
+  useWorkspacePaths: () => ({ issueDetail: (id: string) => `/acme/issues/${id}` }),
+}));
+vi.mock("../../navigation", () => ({
+  AppLink: ({ href, children, ...rest }: { href: string; children: React.ReactNode; [k: string]: unknown }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
 
 import { HealthCard } from "./host-health-card";
 
@@ -47,6 +57,8 @@ const NOT_MEASURED = {
   procs_blocked: null,
   cgroup_mem_current_kb: 0,
   cgroup_mem_limit_kb: 0,
+  tasks: [],
+  stale: null,
 };
 
 const redHost: HostHealth = {
@@ -96,6 +108,31 @@ const measuredHost: HostHealth = {
   procs_blocked: 0,
   cgroup_mem_current_kb: 6_291_456,
   cgroup_mem_limit_kb: 15_728_640,
+  tasks: [],
+  stale: null,
+};
+
+// The PAI-322 thrash, as the per-task rows would have shown it.
+const thrashingHost: HostHealth = {
+  ...measuredHost,
+  cpu_busy_pct: 100,
+  swap_in_kbps: 40_000,
+  cgroup_mem_current_kb: 15_600_000,
+  tasks: [
+    {
+      task_id: "t1",
+      workspace_id: "ws-1",
+      issue_id: "issue-322",
+      issue_identifier: "PAI-322",
+      agent_name: "Codex Senior Dev",
+      procs: 9,
+      rss_kb: 15_204_352,
+      cpu_pct: 71.6,
+      top_cmd: "tsgo --noEmit",
+      top_cmd_age_s: 16_260,
+    },
+  ],
+  stale: { procs: 3, rss_kb: 1_048_576, cpu_pct: 0, top_cmd: "eslint", top_cmd_age_s: 7_200 },
 };
 
 beforeEach(() => {
@@ -139,6 +176,31 @@ describe("HealthCard", () => {
     };
     renderCard();
     expect(screen.getByText("6.0 GB")).toBeTruthy();
+  });
+
+  it("lists each running task with its issue link, footprint and top command", () => {
+    queryState.current = { data: { hosts: [thrashingHost] }, isLoading: false };
+    renderCard();
+    expect(screen.getByText("Saturated")).toBeTruthy();
+    const link = screen.getByRole("link", { name: "PAI-322" });
+    expect(link.getAttribute("href")).toBe("/acme/issues/issue-322");
+    expect(screen.getByText("Codex Senior Dev")).toBeTruthy();
+    expect(screen.getByText("14.5 GB · 72% CPU")).toBeTruthy();
+    expect(screen.getByText("tsgo --noEmit · 4h 31m")).toBeTruthy();
+  });
+
+  it("shows orphaned processes left by finished tasks", () => {
+    queryState.current = { data: { hosts: [thrashingHost] }, isLoading: false };
+    renderCard();
+    expect(screen.getByText("3 orphaned processes (30+ min)")).toBeTruthy();
+    expect(screen.getByText("1.0 GB · 0% CPU")).toBeTruthy();
+    expect(screen.getByText("eslint · 2h 0m")).toBeTruthy();
+  });
+
+  it("renders no task list when nothing is running", () => {
+    queryState.current = { data: { hosts: [measuredHost] }, isLoading: false };
+    renderCard();
+    expect(screen.queryByRole("list")).toBeNull();
   });
 
   it("shows a skeleton while loading", () => {

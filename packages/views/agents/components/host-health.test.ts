@@ -27,6 +27,8 @@ function host(overrides: Partial<HostHealth>): HostHealth {
     procs_blocked: null,
     cgroup_mem_current_kb: 0,
     cgroup_mem_limit_kb: 0,
+    tasks: [],
+    stale: null,
     ...overrides,
   };
 }

@@ -993,6 +993,9 @@
       "load_1m": "Charge (1 min)",
       "swap_activity": "Swap entrée / sortie",
       "agent_memory": "Mémoire des agents",
+      "usage": "{{memory}} · {{cpu}} CPU",
+      "stale_one": "{{count}} processus orphelin (30+ min)",
+      "stale_other": "{{count}} processus orphelins (30+ min)",
       "status": {
         "green": "Sain",
         "amber": "Sous pression",
