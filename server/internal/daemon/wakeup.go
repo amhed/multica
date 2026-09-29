@@ -312,7 +312,7 @@ func (d *Daemon) sendWSHeartbeats(ctx context.Context, runtimeIDs []string, writ
 	// Host metrics are machine-wide, so collect once and attach the same block
 	// to every runtime's beat; nil (non-Linux/unreadable) is omitted by the
 	// omitempty tag.
-	host, _ := d.hostSampler.sample(time.Now())
+	host, _ := d.hostSampler.sample(time.Now(), d.runningHostTasks())
 	for _, rid := range runtimeIDs {
 		if ctx.Err() != nil {
 			return

@@ -24,18 +24,25 @@ const minSampleInterval = time.Second
 // and the daemon's cgroup memory shows how close its agents are to the limit
 // that throttles them.
 type hostSampler struct {
-	procRoot   string // normally "/proc"
-	cgroupRoot string // normally "/sys/fs/cgroup"
-	pageSize   int
+	procRoot       string // normally "/proc"
+	cgroupRoot     string // normally "/sys/fs/cgroup"
+	workspacesRoot string // task processes run below it; empty skips the process walk
+	pageSize       int
 
-	mu     sync.Mutex
-	prev   hostCounters
-	prevAt time.Time
-	last   *protocol.DaemonHost
+	mu        sync.Mutex
+	prev      hostCounters
+	prevAt    time.Time
+	prevTicks map[procKey]uint64
+	last      *protocol.DaemonHost
 }
 
-func newHostSampler() *hostSampler {
-	return &hostSampler{procRoot: "/proc", cgroupRoot: "/sys/fs/cgroup", pageSize: os.Getpagesize()}
+func newHostSampler(workspacesRoot string) *hostSampler {
+	return &hostSampler{
+		procRoot:       "/proc",
+		cgroupRoot:     "/sys/fs/cgroup",
+		workspacesRoot: workspacesRoot,
+		pageSize:       os.Getpagesize(),
+	}
 }
 
 // hostCounters are the cumulative counters rates are derived from. The ok
@@ -48,7 +55,7 @@ type hostCounters struct {
 	pswpin, pswpout   uint64
 }
 
-func (s *hostSampler) sample(now time.Time) (*protocol.DaemonHost, bool) {
+func (s *hostSampler) sample(now time.Time, tasks []hostTask) (*protocol.DaemonHost, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.last != nil && now.Sub(s.prevAt) < minSampleInterval {
@@ -83,9 +90,11 @@ func (s *hostSampler) sample(now time.Time) (*protocol.DaemonHost, bool) {
 		}
 	}
 
+	var cpuDelta uint64
 	if s.last != nil {
 		dt := now.Sub(s.prevAt).Seconds()
 		if cur.cpuOK && s.prev.cpuOK && cur.cpuTotal > s.prev.cpuTotal {
+			cpuDelta = cur.cpuTotal - s.prev.cpuTotal
 			total := float64(cur.cpuTotal - s.prev.cpuTotal)
 			idle := float64(cur.cpuIdle - s.prev.cpuIdle)
 			busy := 100 * (1 - idle/total)
@@ -101,7 +110,16 @@ func (s *hostSampler) sample(now time.Time) (*protocol.DaemonHost, bool) {
 
 	host.CgroupMemCurrentKB, host.CgroupMemLimitKB = s.cgroupMemory()
 
-	s.prev, s.prevAt, s.last = cur, now, host
+	ticks := make(map[procKey]uint64)
+	if uptime, ok := readUptime(s.procRoot + "/uptime"); ok && s.workspacesRoot != "" {
+		procs := s.walkProcs(uptime)
+		host.Tasks, host.Stale = attributeProcs(procs, tasks, s.prevTicks, cpuDelta)
+		for _, p := range procs {
+			ticks[p.key] = p.ticks
+		}
+	}
+
+	s.prev, s.prevAt, s.prevTicks, s.last = cur, now, ticks, host
 	return host, true
 }
 

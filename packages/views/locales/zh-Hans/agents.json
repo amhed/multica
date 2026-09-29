@@ -971,6 +971,8 @@
       "load_1m": "负载（1 分钟）",
       "swap_activity": "交换读入 / 写出",
       "agent_memory": "智能体内存",
+      "usage": "{{memory}} · CPU {{cpu}}",
+      "stale_other": "{{count}} 个孤立进程（30 分钟以上）",
       "status": {
         "green": "正常",
         "amber": "压力较大",
