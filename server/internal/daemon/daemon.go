@@ -648,6 +648,10 @@ type Daemon struct {
 	repoCheckoutTasksMu sync.RWMutex
 	repoCheckoutTasks   map[string]activeRepoCheckoutTask
 
+	// hostSampler keeps the previous /proc counters so each heartbeat can
+	// report CPU and swap rates, not just cumulative totals.
+	hostSampler *hostSampler
+
 	// localPathLocks serialises agent tasks whose project resource is a
 	// local_directory pinned to this daemon. Two tasks targeting the same
 	// on-disk path run sequentially; the second blocks on the lock and is
@@ -716,6 +720,7 @@ func New(cfg Config, logger *slog.Logger) *Daemon {
 		skillCache:                  NewSkillBundleCache(skillCacheRoot),
 		logger:                      logger,
 		terminalReports:             newTerminalReportStore(cfg),
+		hostSampler:                 newHostSampler(),
 		terminalReportWakeup:        make(chan struct{}, 1),
 		terminalReportNow:           time.Now,
 		terminalReportFlight:        make(map[string]struct{}),

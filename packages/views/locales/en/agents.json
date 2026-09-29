@@ -989,6 +989,10 @@
       "load": "Load",
       "memory": "Memory",
       "swap": "Swap",
+      "cpu": "CPU",
+      "load_1m": "Load (1m)",
+      "swap_activity": "Swap in / out",
+      "agent_memory": "Agent memory",
       "status": {
         "green": "Healthy",
         "amber": "Under pressure",

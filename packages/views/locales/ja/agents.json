@@ -967,6 +967,10 @@
       "load": "負荷",
       "memory": "メモリ",
       "swap": "スワップ",
+      "cpu": "CPU",
+      "load_1m": "負荷（1分）",
+      "swap_activity": "スワップ入力 / 出力",
+      "agent_memory": "エージェントのメモリ",
       "status": {
         "green": "正常",
         "amber": "高負荷",

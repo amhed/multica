@@ -2086,6 +2086,12 @@ export const HostHealthSchema = z.object({
   mem_available_kb: z.number().default(0),
   swap_total_kb: z.number().default(0),
   swap_free_kb: z.number().default(0),
+  cpu_busy_pct: z.number().nullable().default(null),
+  swap_in_kbps: z.number().nullable().default(null),
+  swap_out_kbps: z.number().nullable().default(null),
+  procs_blocked: z.number().nullable().default(null),
+  cgroup_mem_current_kb: z.number().default(0),
+  cgroup_mem_limit_kb: z.number().default(0),
 }).loose();
 
 export const HostHealthResponseSchema = z.object({

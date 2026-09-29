@@ -13,6 +13,9 @@ import { useT } from "../../i18n";
 import { ReapDialog } from "./reap-dialog";
 import {
   deriveHostStatus,
+  formatKB,
+  formatKBps,
+  hasSaturationSignals,
   memUsedRatio,
   swapUsedRatio,
   type HostStatus,
@@ -58,7 +61,7 @@ function HostRow({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4",
+        "@container flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4",
         STATUS_BORDER[status],
       )}
     >
@@ -71,13 +74,49 @@ function HostRow({
           {t(($) => $.active_board.host.status[status])}
         </span>
       </div>
-      <dl className="grid grid-cols-3 gap-3 text-caption">
-        <Metric
-          label={t(($) => $.active_board.host.load)}
-          value={`${host.load15.toFixed(2)} / ${host.ncpu}`}
-        />
-        <Metric label={t(($) => $.active_board.host.memory)} value={pct(memUsedRatio(host))} />
-        <Metric label={t(($) => $.active_board.host.swap)} value={pct(swapUsedRatio(host))} />
+      <dl
+        className={cn(
+          "grid gap-3 text-caption",
+          // Five metrics with rate values need two columns on a narrow card.
+          hasSaturationSignals(host) ? "grid-cols-2 @sm:grid-cols-3" : "grid-cols-3",
+        )}
+      >
+        {hasSaturationSignals(host) ? (
+          <>
+            <Metric
+              label={t(($) => $.active_board.host.cpu)}
+              value={host.cpu_busy_pct == null ? "–" : `${Math.round(host.cpu_busy_pct)}%`}
+            />
+            <Metric
+              label={t(($) => $.active_board.host.load_1m)}
+              value={`${host.load1.toFixed(2)} / ${host.ncpu}`}
+            />
+            <Metric label={t(($) => $.active_board.host.memory)} value={pct(memUsedRatio(host))} />
+            <Metric
+              label={t(($) => $.active_board.host.swap_activity)}
+              value={`${formatKBps(host.swap_in_kbps ?? 0)} / ${formatKBps(host.swap_out_kbps ?? 0)}`}
+            />
+            {host.cgroup_mem_current_kb > 0 && (
+              <Metric
+                label={t(($) => $.active_board.host.agent_memory)}
+                value={
+                  host.cgroup_mem_limit_kb > 0
+                    ? `${formatKB(host.cgroup_mem_current_kb)} / ${formatKB(host.cgroup_mem_limit_kb)}`
+                    : formatKB(host.cgroup_mem_current_kb)
+                }
+              />
+            )}
+          </>
+        ) : (
+          <>
+            <Metric
+              label={t(($) => $.active_board.host.load)}
+              value={`${host.load15.toFixed(2)} / ${host.ncpu}`}
+            />
+            <Metric label={t(($) => $.active_board.host.memory)} value={pct(memUsedRatio(host))} />
+            <Metric label={t(($) => $.active_board.host.swap)} value={pct(swapUsedRatio(host))} />
+          </>
+        )}
       </dl>
       {showReapAction && (
         <Button variant="outline" size="sm" onClick={() => setReapOpen(true)}>
