@@ -61,7 +61,7 @@ function HostRow({
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4",
+        "@container flex min-w-0 flex-col gap-2 rounded-lg border bg-card p-4",
         STATUS_BORDER[status],
       )}
     >
@@ -74,7 +74,13 @@ function HostRow({
           {t(($) => $.active_board.host.status[status])}
         </span>
       </div>
-      <dl className="grid grid-cols-3 gap-3 text-caption">
+      <dl
+        className={cn(
+          "grid gap-3 text-caption",
+          // Five metrics with rate values need two columns on a narrow card.
+          hasSaturationSignals(host) ? "grid-cols-2 @sm:grid-cols-3" : "grid-cols-3",
+        )}
+      >
         {hasSaturationSignals(host) ? (
           <>
             <Metric
