@@ -135,6 +135,9 @@ Ne placez pas d'identifiants ni d'autres secrets dans les arguments personnalis�
 
 La configuration MCP peut contenir des jetons ; ses règles de stockage et d'affichage sont les mêmes que pour les variables d'environnement. Seuls les runtimes qui prennent en charge la configuration MCP gérée affichent cette section ; les outils sans prise en charge de MCP ne l'acquièrent pas simplement parce qu'une configuration est enregistrée.
 
+Pour garder un jeton dans les variables d'environnement, écrivez `${NAME}` (ou `${NAME:-default}`) dans les champs `command`, `args`, `env`, `url` ou `headers` d'un serveur.
+Au démarrage d'une tâche, la valeur est reprise des variables d'environnement de l'agent, quel que soit le runtime ; un nom que l'agent n'a pas est laissé tel quel.
+
 ## Dupliquer un agent
 
 La duplication reprend l'essentiel de la configuration de travail, sauf le nom : instructions, amorces de conversation, skills, arguments personnalisés, avatar, limite de parallélisme et paramètres d'Accès. Le modèle, le niveau de réflexion et la vitesse (niveau de service) sont également repris ; si le runtime d'origine est indisponible et que la copie doit passer sur un autre runtime, ces trois valeurs sont effacées et doivent être choisies à nouveau.
