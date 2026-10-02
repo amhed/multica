@@ -28,7 +28,7 @@ import type {
   SearchIssueResult,
   SearchProjectResult,
 } from "@multica/core/types";
-import { api } from "@multica/core/api";
+import { isLocalSearchReady, searchIssues, searchProjects } from "@multica/core/search-index";
 import { useAuthStore } from "@multica/core/auth";
 import { isAgentRuntimeBound } from "@multica/core/agents";
 import { canAssignAgentToIssue } from "@multica/core/permissions";
@@ -748,18 +748,21 @@ export function SearchCommand() {
     }
 
     setIsLoading(true);
+    // The debounce spares the server a request per keystroke; the local index
+    // answers in milliseconds, so it searches on every keystroke.
+    const delay = isLocalSearchReady() ? 0 : 300;
     debounceRef.current = setTimeout(async () => {
       const controller = new AbortController();
       abortRef.current = controller;
       try {
         const [issueRes, projectRes] = await Promise.all([
-          api.searchIssues({
+          searchIssues({
             q: q.trim(),
             limit: 20,
             include_closed: true,
             signal: controller.signal,
           }),
-          api.searchProjects({
+          searchProjects({
             q: q.trim(),
             limit: 10,
             include_closed: true,
@@ -783,7 +786,7 @@ export function SearchCommand() {
           setIsLoading(false);
         }
       }
-    }, 300);
+    }, delay);
   }, []);
 
   const handleValueChange = useCallback(
