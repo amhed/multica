@@ -93,7 +93,7 @@ describe("chat toggle shortcut", () => {
       useChatInputFocus(isOpen, windowRef);
       return <div ref={windowRef} inert={!isOpen}><div data-testid="composer" contentEditable tabIndex={0} /></div>;
     }
-    const { getByTestId, rerender } = render(<><GlobalShortcuts /><Composer isOpen /></>);
+    const { getByTestId, rerender } = render(<><GlobalShortcuts /><Composer isOpen /></>, { wrapper });
     const editor = getByTestId("composer");
     editor.focus();
     expect(document.activeElement).toBe(editor);
