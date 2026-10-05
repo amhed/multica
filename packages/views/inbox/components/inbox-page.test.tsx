@@ -185,12 +185,14 @@ vi.mock("./inbox-list", () => ({
     rows,
     view,
     onSelect,
+    onSelectIssue,
     emptyLabel,
     emptyAction,
   }: {
     rows: InboxHierarchyRow[];
     view: string;
     onSelect: (item: InboxItem) => void;
+    onSelectIssue: (issueId: string) => void;
     emptyLabel?: string;
     emptyAction?: React.ReactNode;
   }) => (
@@ -198,6 +200,11 @@ vi.mock("./inbox-list", () => ({
       {rows.flatMap(r => r.item ? [r.item] : []).map((i) => (
         <button key={i.id} data-testid="row" onClick={() => onSelect(i)}>
           {i.id}
+        </button>
+      ))}
+      {rows.flatMap(r => !r.item && r.issue ? [r.issue] : []).map((issue) => (
+        <button key={issue.id} data-testid="context-row" onClick={() => onSelectIssue(issue.id)}>
+          {issue.title}
         </button>
       ))}
       {rows.length === 0 && emptyLabel && <p>{emptyLabel}</p>}
@@ -1003,6 +1010,19 @@ it("archives in visible hierarchy order, selecting the child after its parent", 
   act(() => rowActions!.onAction("parent"));
   expect(archiveMutate).toHaveBeenCalledWith("parent", expect.any(Object));
   expect(replace).toHaveBeenLastCalledWith("/acme/inbox?issue=child-issue");
+});
+
+
+it("opens a parent-context row in place instead of leaving the inbox", () => {
+  reset();
+  layout.width = DESKTOP;
+  listData.active = [item({ id: "child", issue_id: "child-issue",
+    issue_ancestors: [{ id: "parent-issue", title: "Done parent", status: "done" }] })];
+  render(<InboxPage />);
+  fireEvent.click(screen.getByTestId("context-row"));
+  expect(replace).toHaveBeenLastCalledWith("/acme/inbox?issue=parent-issue");
+  expect(replace).not.toHaveBeenCalledWith("/acme/issues/parent-issue");
+  expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "parent-issue" });
 });
 
 

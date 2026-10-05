@@ -1,4 +1,4 @@
-import type { InboxItem } from "@multica/core/types";
+import type { InboxIssueAncestor, InboxItem } from "@multica/core/types";
 
 function singleLine(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
@@ -89,4 +89,21 @@ export function resolveDetailItem(
   // the row it was on is gone. Only the second case falls forward.
   if (!detailKey || detailKey === selectedKey) return null;
   return selectedKey ? byKey(selectedKey) : null;
+}
+
+/**
+ * A parent-context row in the hierarchy has no notification of its own, only
+ * ancestor metadata carried on its descendants. Selecting one opens that issue
+ * in the inbox detail pane, so its key resolves against those ancestors.
+ */
+export function findInboxAncestor(
+  items: InboxItem[],
+  issueId: string,
+): InboxIssueAncestor | null {
+  if (!issueId) return null;
+  for (const item of items) {
+    const ancestor = item.issue_ancestors?.find((a) => a.id === issueId);
+    if (ancestor) return ancestor;
+  }
+  return null;
 }

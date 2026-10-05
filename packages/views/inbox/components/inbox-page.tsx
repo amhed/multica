@@ -95,6 +95,7 @@ import { InboxContextMenuProvider } from "./inbox-context-menu";
 import { ARCHIVED_VIEW_PARAM, type InboxView } from "./inbox-view";
 import { useTypeLabels } from "./inbox-detail-label";
 import {
+  findInboxAncestor,
   getInboxDisplayTitle,
   isAutopilotQuotaNotice,
   isQuickCreateOutcome,
@@ -156,11 +157,12 @@ export function InboxPage() {
   const visibleItems = useMemo(() => filterInboxItems(viewItems, effectiveFilters), [viewItems, effectiveFilters]);
   const hasActiveFilters = inboxFilterCount(effectiveFilters) > 0;
   const selectedOnPage = viewItems.find((i) => (i.issue_id ?? i.id) === selectedKey);
+  const ancestorOnPage = selectedOnPage ? null : findInboxAncestor(viewItems, selectedKey);
   // A deep link can point beyond every loaded page. Resolve its group directly
   // without adding it to the cursor chain or mistaking a page miss for a 404.
   const lookup = useQuery({
     ...archivedInboxLookupOptions(wsId, selectedKey),
-    enabled: isArchivedView && !!selectedKey && !selectedOnPage && !archivedLoading && !archivedError,
+    enabled: isArchivedView && !!selectedKey && !selectedOnPage && !ancestorOnPage && !archivedLoading && !archivedError,
   });
   const lookupItems = useMemo(() => deduplicateArchivedInboxItems(lookup.data?.items ?? []), [lookup.data]);
   const selectionItems = useMemo(() => {
@@ -181,6 +183,8 @@ export function InboxPage() {
   const selected = selectionItems.find((i) => (i.issue_id ?? i.id) === selectedKey) ?? null;
   const selectedInView = selectedOnPage ?? (isArchivedView ? lookupItems.find((i) => (i.issue_id ?? i.id) === selectedKey) : null);
   const selectionFilteredOut = !!selectedKey && !!selectedInView && !selected;
+  // A parent-context row opens its issue in place; it has no inbox item.
+  const selectedAncestor = selected ? null : findInboxAncestor(selectionItems, selectedKey);
 
   // What the DETAIL pane shows, one React transition behind the click.
   //
@@ -194,6 +198,10 @@ export function InboxPage() {
   const detailKey = useDeferredValue(selectedKey);
   const detailSwapping = detailKey !== selectedKey;
   const detailItem = resolveDetailItem(selectionItems, selectedKey, detailKey);
+  const detailAncestor = detailItem
+    ? null
+    : findInboxAncestor(selectionItems, detailKey) ?? selectedAncestor;
+  const detailIssueId = detailItem?.issue_id ?? detailAncestor?.id ?? null;
 
   // The gap above is invisible to the navigation adapter — the inbox stays on
   // the same route and only rewrites `?issue=` — so report it explicitly and
@@ -206,8 +214,8 @@ export function InboxPage() {
   // our inbox and just got removed" (was resolved → stay on /inbox).
   const lastResolvedKeyRef = useRef<string>("");
   useEffect(() => {
-    if (selected) lastResolvedKeyRef.current = selectedKey;
-  }, [selected, selectedKey]);
+    if (selected || selectedAncestor) lastResolvedKeyRef.current = selectedKey;
+  }, [selected, selectedAncestor, selectedKey]);
 
   // Both the view and the selection live in the URL, so every write has to
   // carry the other one — a bare `?issue=` would silently drop the user out of
@@ -262,7 +270,7 @@ export function InboxPage() {
   // A targeted lookup must not hide pages that have already loaded. Its
   // pending/error states only block resolution of the off-page selection.
   const viewLoading = isArchivedView ? archivedLoading : loading;
-  const needsLookup = isArchivedView && !!selectedKey && !selectedOnPage;
+  const needsLookup = isArchivedView && !!selectedKey && !selectedOnPage && !ancestorOnPage;
   const lookupLoading = needsLookup && lookup.isLoading;
   const lookupError = needsLookup && lookup.isError && !selected;
 
@@ -275,7 +283,7 @@ export function InboxPage() {
   useEffect(() => {
     if (viewLoading || lookupLoading || lookupError || (isArchivedView && archivedError)) return;
     if (!selectedKey) return;
-    if (selected) return;
+    if (selected || selectedAncestor) return;
     if (selectionFilteredOut) return;
     if (lastResolvedKeyRef.current === selectedKey) {
       setSelectedKey("");
@@ -290,6 +298,7 @@ export function InboxPage() {
     lookupError,
     selectedKey,
     selected,
+    selectedAncestor,
     selectionFilteredOut,
     replace,
     wsPaths,
@@ -373,6 +382,8 @@ export function InboxPage() {
     }
     setSelectedKey(nextKey);
   };
+
+  const handleSelectIssue = (issueId: string) => setSelectedKey(issueId);
 
   const handleMarkRead = (id: string) => {
     // Reading it back explicitly cancels an earlier park on the same row.
@@ -623,6 +634,7 @@ export function InboxPage() {
         loadingMore={archiveQuery.isFetchingNextPage}
         loadMoreError={archiveQuery.isFetchNextPageError}
         onSelect={handleSelect}
+        onSelectIssue={handleSelectIssue}
         onAction={isArchivedView ? handleUnarchive : handleArchive}
         onOpenArchived={openArchived}
         emptyLabel={
@@ -695,13 +707,13 @@ export function InboxPage() {
     </div>
   ) : null;
 
-  const detailContent = detailItem?.issue_id ? (
+  const detailContent = detailIssueId ? (
     // Key by issue_id (not inbox-item id): a new comment/reaction generates a
     // new inbox notification for the same issue, and the dedup helper picks the
     // newest one — keying on its id would remount IssueDetail on every event,
     // wiping the comment composer draft and resetting scroll position.
     <ErrorBoundary
-      resetKeys={[detailItem.issue_id]}
+      resetKeys={[detailIssueId]}
       // The default fallback is a bare message card. On a phone it would be the
       // only thing on screen, so it has to carry the way back too — the bar is
       // the point here, the message is whatever the boundary caught.
@@ -714,7 +726,7 @@ export function InboxPage() {
         </div>
       ) : undefined}
     >
-      {(detailItem.issue_ancestors?.length ?? 0) > 1 && (
+      {detailItem && (detailItem.issue_ancestors?.length ?? 0) > 1 && (
         <nav aria-label={t(($) => $.hierarchy.ancestor_path)} className="shrink-0 border-b px-4 py-2">
           <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-caption text-muted-foreground">
             {[...(detailItem.issue_ancestors ?? [])].reverse().map((ancestor, index) => (
@@ -729,11 +741,11 @@ export function InboxPage() {
         </nav>
       )}
       <IssueDetail
-        key={detailItem.issue_id}
-        issueId={detailItem.issue_id}
+        key={detailIssueId}
+        issueId={detailIssueId}
         defaultSidebarOpen={false}
         layoutId="multica_inbox_issue_detail_layout"
-        highlightCommentId={detailItem.details?.comment_id ?? undefined}
+        highlightCommentId={detailItem?.details?.comment_id ?? undefined}
         highlightRequestToken={highlightRequestToken}
         // The split layout already has a nav trigger in the list header.
         // Explicit false suppresses the detail header's fallback trigger.
@@ -745,9 +757,9 @@ export function InboxPage() {
           // longer exists.
           setSelectedKey("");
         }}
-        onDone={() => {
+        onDone={detailItem ? () => {
           handleArchive(detailItem.id);
-        }}
+        } : undefined}
       />
     </ErrorBoundary>
   ) : detailItem ? (
@@ -885,7 +897,7 @@ export function InboxPage() {
     // of selection get their chrome from different places, so they render
     // differently — `InboxItem.issue_id` is nullable and a null one is a plain
     // notification (a failed quick-create, say), not an issue.
-    if (detailItem?.issue_id) {
+    if (detailIssueId) {
       // No scroll container and no back bar of our own: `IssueDetail` owns
       // both, and takes the way back through `leadingAction`. Wrapping it in
       // an `overflow-y-auto` used to collapse its inner scroller to content
