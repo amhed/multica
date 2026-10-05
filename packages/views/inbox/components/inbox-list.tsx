@@ -58,6 +58,7 @@ export function InboxList({
   loadingMore = false,
   loadMoreError = false,
   onSelect,
+  onSelectIssue,
   onAction,
   onOpenArchived,
   emptyLabel,
@@ -71,6 +72,7 @@ export function InboxList({
   loadingMore?: boolean;
   loadMoreError?: boolean;
   onSelect: (item: InboxItem) => void;
+  onSelectIssue: (issueId: string) => void;
   onAction: (id: string) => void;
   onOpenArchived: () => void;
   emptyLabel?: string;
@@ -254,7 +256,17 @@ export function InboxList({
                 onClick={() => selectItem(row.item!)}
                 onAction={() => onAction(row.item!.id)}
               />
-            ) : row.issue ? <InboxParentContext issue={row.issue} workspaceId={row.workspaceId} /> : null}
+            ) : row.issue ? (
+              <InboxParentContext
+                issue={row.issue}
+                workspaceId={row.workspaceId}
+                isSelected={row.issue.id === selectedKey}
+                onClick={() => {
+                  focusList();
+                  onSelectIssue(row.issue!.id);
+                }}
+              />
+            ) : null}
           </div>
         </div>
         {hasChildren && (
