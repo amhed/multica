@@ -32,8 +32,7 @@ import {
   Platform,
   View,
 } from "react-native";
-import { router } from "expo-router";
-import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { router, useFocusEffect, useIsFocused } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Agent, ChatPendingTask } from "@multica/core/types";
 import {

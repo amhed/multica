@@ -1601,7 +1601,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		slog.Warn("create agent failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", workspaceID)...)
-		writeError(w, http.StatusInternalServerError, "failed to create agent: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to create agent")
 		return
 	}
 	if err := replaceInvocationTargetsWithQueries(r.Context(), qtx, created.ID, parseUUID(ownerID), perm.targets); err != nil {
@@ -2252,7 +2252,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		slog.Warn("update agent failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-		writeError(w, http.StatusInternalServerError, "failed to update agent: "+err.Error())
+		writeError(w, http.StatusInternalServerError, "failed to update agent")
 		return
 	}
 
@@ -2263,7 +2263,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		updated, err = h.Queries.ClearAgentMcpConfig(r.Context(), updated.ID)
 		if err != nil {
 			slog.Warn("clear agent mcp_config failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-			writeError(w, http.StatusInternalServerError, "failed to clear mcp_config: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "failed to clear mcp_config")
 			return
 		}
 	}
@@ -2271,7 +2271,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		updated, err = h.Queries.ClearAgentThinkingLevel(r.Context(), updated.ID)
 		if err != nil {
 			slog.Warn("clear agent thinking_level failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-			writeError(w, http.StatusInternalServerError, "failed to clear thinking_level: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "failed to clear thinking_level")
 			return
 		}
 	}
@@ -2279,7 +2279,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		updated, err = h.Queries.ClearAgentServiceTier(r.Context(), updated.ID)
 		if err != nil {
 			slog.Warn("clear agent service_tier failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-			writeError(w, http.StatusInternalServerError, "failed to clear service_tier: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "failed to clear service_tier")
 			return
 		}
 	}
@@ -2287,7 +2287,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		updated, err = h.Queries.ClearAgentComposioToolkitAllowlist(r.Context(), updated.ID)
 		if err != nil {
 			slog.Warn("clear agent composio_toolkit_allowlist failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-			writeError(w, http.StatusInternalServerError, "failed to clear composio_toolkit_allowlist: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "failed to clear composio_toolkit_allowlist")
 			return
 		}
 	}
@@ -2298,7 +2298,7 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	if replacePermissionTargets {
 		if err := h.replaceInvocationTargets(r.Context(), updated.ID, parseUUID(requestUserID(r)), resolvedPerm.targets); err != nil {
 			slog.Warn("update agent: persist invocation targets failed", append(logger.RequestAttrs(r), "error", err, "agent_id", id)...)
-			writeError(w, http.StatusInternalServerError, "failed to update invocation targets: "+err.Error())
+			writeError(w, http.StatusInternalServerError, "failed to update invocation targets")
 			return
 		}
 	}
@@ -3167,7 +3167,8 @@ func (h *Handler) InitiateHostReap(w http.ResponseWriter, r *http.Request) {
 
 	req, err := h.HostReapStore.Create(r.Context(), daemonID, workspaceID, runtimeID, mode, uuidToString(member.UserID))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to enqueue: "+err.Error())
+		slog.Error("enqueue host reap failed", append(logger.RequestAttrs(r), "error", err, "daemon_id", daemonID)...)
+		writeError(w, http.StatusInternalServerError, "failed to enqueue")
 		return
 	}
 	h.requestDaemonPendingWork(runtimeID, protocol.PendingWorkKindHostReap)
@@ -3190,7 +3191,8 @@ func (h *Handler) GetHostReapRequest(w http.ResponseWriter, r *http.Request) {
 
 	req, err := h.HostReapStore.Get(r.Context(), chi.URLParam(r, "requestId"))
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load request: "+err.Error())
+		slog.Error("load host reap request failed", append(logger.RequestAttrs(r), "error", err, "daemon_id", daemonID)...)
+		writeError(w, http.StatusInternalServerError, "failed to load request")
 		return
 	}
 	if req == nil || req.DaemonID != daemonID || req.WorkspaceID != workspaceID {
@@ -3216,7 +3218,8 @@ func (h *Handler) ReportHostReapResult(w http.ResponseWriter, r *http.Request) {
 	// was a retry, and the original report already landed).
 	req, err := h.HostReapStore.Get(r.Context(), requestID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load request: "+err.Error())
+		slog.Error("load host reap request failed", append(logger.RequestAttrs(r), "error", err, "request_id", requestID)...)
+		writeError(w, http.StatusInternalServerError, "failed to load request")
 		return
 	}
 	if req == nil || req.RuntimeID != uuidToString(rt.ID) {
@@ -3241,12 +3244,14 @@ func (h *Handler) ReportHostReapResult(w http.ResponseWriter, r *http.Request) {
 
 	if body.Status == "failed" {
 		if err := h.HostReapStore.Fail(r.Context(), requestID, body.Error); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to record failure: "+err.Error())
+			slog.Error("record host reap failure failed", append(logger.RequestAttrs(r), "error", err, "request_id", requestID)...)
+			writeError(w, http.StatusInternalServerError, "failed to record failure")
 			return
 		}
 	} else {
 		if err := h.HostReapStore.Complete(r.Context(), requestID, body.Result); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to record result: "+err.Error())
+			slog.Error("record host reap result failed", append(logger.RequestAttrs(r), "error", err, "request_id", requestID)...)
+			writeError(w, http.StatusInternalServerError, "failed to record result")
 			return
 		}
 	}
