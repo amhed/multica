@@ -267,6 +267,9 @@ archived statuses remain readable via an explicit status filter.
 - **Failed issue-triggered tasks** may roll an issue from `in_progress` back to
   `todo` when no active task / retry remains — that is the main server-owned
   status write on the agent-run path.
+- **Project workflows** can limit which statuses an issue takes and turn a
+  status change into a handoff to another agent. When the per-turn prompt
+  carries a `[Project workflow]` block, read `references/projects.md`.
 
 ## Who else is running right now
 
@@ -426,14 +429,11 @@ multica issue create --title "Step 3" --parent <issue-id> --assignee <agent> --s
 
 ## Inbox hierarchy
 
-The [Inbox guide](https://multica.ai/docs/inbox#related-issues-stay-together)
-owns the member-facing grouping, filtering, navigation, and read/archive behavior.
+The [Inbox guide](https://multica.ai/docs/inbox#related-issues-stay-together) owns the member-facing grouping, filtering, navigation, and read/archive behavior.
 
-Inbox list responses may include `issue_ancestors`, ordered from the immediate
-parent to the root, with each ancestor's `id`, `title`, and `status`. The field
-is optional; clients must accept responses without it. Ancestors belong to the
-same workspace and provide context only, with read/archive actions applying to
-individual notifications. The lookup batches issues and stops at ancestry cycles.
+Inbox list responses may include an optional `issue_ancestors` (immediate parent to root, each with `id`, `title`, and `status`); clients must accept responses without it.
+Ancestors belong to the same workspace and provide context only; read/archive actions apply to individual notifications.
+The lookup batches issues and stops at ancestry cycles.
 
 ## Issue wakeups
 
