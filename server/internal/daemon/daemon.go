@@ -8343,6 +8343,15 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 			}
 		}()
 	}
+	// Kill whatever the run left behind in its env root on every exit path,
+	// before the worktree finalize above commits the tree. RootDir is always
+	// daemon-owned: an in-place local_directory run keeps only its workdir on
+	// the user's path, which this never touches. OpenCode is excluded because
+	// a 2.x run talks to a shared background service that is meant to outlive
+	// the run, and that service may have started inside this root.
+	if provider != "opencode" {
+		defer sweepEnvRootProcesses(taskLog, env.RootDir)
+	}
 	// Workdir is preserved for reuse by future tasks on the same (agent,
 	// issue) pair in cloud mode; the work_dir path is stored in DB on task
 	// completion and passed back via PriorWorkDir on the next claim, so
