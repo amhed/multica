@@ -53,6 +53,9 @@ type AutopilotResponse struct {
 	CreatedAt          string  `json:"created_at"`
 	UpdatedAt          string  `json:"updated_at"`
 
+	// Fork-only: skip triggers while an issue this autopilot created is unresolved.
+	PstackSkipWhileOpen bool `json:"pstack_skip_while_open"`
+
 	// List-endpoint-only derived fields (absent on the detail/create/update
 	// responses and on older servers — clients must treat them as optional).
 	// Enabled triggers only; last_run_status is the most recent run's status.
@@ -216,6 +219,8 @@ func autopilotToResponse(a db.Autopilot, subscribers []db.AutopilotSubscriber) A
 		CreatedAt:          timestampToString(a.CreatedAt),
 		UpdatedAt:          timestampToString(a.UpdatedAt),
 		Subscribers:        subResp,
+
+		PstackSkipWhileOpen: a.PstackSkipWhileOpen,
 	}
 }
 
@@ -367,6 +372,8 @@ type CreateAutopilotRequest struct {
 	ExecutionMode      string            `json:"execution_mode"`
 	IssueTitleTemplate *string           `json:"issue_title_template"`
 	Subscribers        []SubscriberInput `json:"subscribers"`
+
+	PstackSkipWhileOpen bool `json:"pstack_skip_while_open"`
 }
 
 type UpdateAutopilotRequest struct {
@@ -380,6 +387,8 @@ type UpdateAutopilotRequest struct {
 	IssueTitleTemplate *string `json:"issue_title_template"`
 	// Wholesale replacement when present; omit to leave subscribers untouched.
 	Subscribers []SubscriberInput `json:"subscribers"`
+
+	PstackSkipWhileOpen *bool `json:"pstack_skip_while_open"`
 }
 
 type SubscriberInput struct {
@@ -911,6 +920,8 @@ func (h *Handler) CreateAutopilot(w http.ResponseWriter, r *http.Request) {
 		Description:        ptrToText(req.Description),
 		IssueTitleTemplate: ptrToText(req.IssueTitleTemplate),
 		ProjectID:          projectID,
+
+		PstackSkipWhileOpen: req.PstackSkipWhileOpen,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create autopilot")
@@ -1080,6 +1091,9 @@ func (h *Handler) UpdateAutopilot(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.ExecutionMode != nil {
 		params.ExecutionMode = pgtype.Text{String: *req.ExecutionMode, Valid: true}
+	}
+	if req.PstackSkipWhileOpen != nil {
+		params.PstackSkipWhileOpen = pgtype.Bool{Bool: *req.PstackSkipWhileOpen, Valid: true}
 	}
 	if _, ok := rawFields["description"]; ok {
 		params.Description = ptrToText(req.Description)

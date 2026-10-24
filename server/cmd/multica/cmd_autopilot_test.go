@@ -38,6 +38,7 @@ func newAutopilotUpdateTestCmd() *cobra.Command {
 	cmd.Flags().String("issue-title-template", "", "")
 	cmd.Flags().StringArray("subscriber", nil, "")
 	cmd.Flags().Bool("clear-subscribers", false, "")
+	cmd.Flags().Bool("skip-while-open", false, "")
 	cmd.Flags().String("output", "json", "")
 	return cmd
 }
@@ -1099,4 +1100,40 @@ func TestAutopilotTriggerRequestError_SurfacesRefusalToTheUser(t *testing.T) {
 			t.Errorf("output = %q, must not echo an un-opted-in 403 body", got)
 		}
 	})
+}
+
+func TestRunAutopilotUpdateSendsSkipWhileOpenOnlyWhenSet(t *testing.T) {
+	const autopilotID = "44444444-4444-4444-4444-444444444444"
+
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body = nil
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		json.NewEncoder(w).Encode(map[string]any{"id": autopilotID})
+	}))
+	defer srv.Close()
+
+	t.Setenv("MULTICA_SERVER_URL", srv.URL)
+	t.Setenv("MULTICA_WORKSPACE_ID", "ws-1")
+	t.Setenv("MULTICA_TOKEN", "test-token")
+
+	cmd := newAutopilotUpdateTestCmd()
+	_ = cmd.Flags().Set("skip-while-open", "false")
+	if err := runAutopilotUpdate(cmd, []string{autopilotID}); err != nil {
+		t.Fatalf("runAutopilotUpdate: %v", err)
+	}
+	if v, ok := body["pstack_skip_while_open"]; !ok || v != false {
+		t.Fatalf("pstack_skip_while_open = %#v (present=%v), want explicit false", v, ok)
+	}
+
+	cmd = newAutopilotUpdateTestCmd()
+	_ = cmd.Flags().Set("title", "Renamed")
+	if err := runAutopilotUpdate(cmd, []string{autopilotID}); err != nil {
+		t.Fatalf("runAutopilotUpdate: %v", err)
+	}
+	if _, ok := body["pstack_skip_while_open"]; ok {
+		t.Fatalf("pstack_skip_while_open sent without --skip-while-open: %#v", body)
+	}
 }

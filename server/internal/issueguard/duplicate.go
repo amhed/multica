@@ -135,6 +135,37 @@ func LockAndFindRecentAutopilotDuplicate(
 	return duplicate, true, nil
 }
 
+// LockAndFindOpenAutopilotIssue serializes concurrent dispatches of one
+// autopilot and returns its oldest issue that is not yet Done/Closed. It keys on
+// live issue status rather than run status, so a deleted or resolved issue
+// stops blocking immediately.
+func LockAndFindOpenAutopilotIssue(
+	ctx context.Context,
+	q *db.Queries,
+	workspaceID pgtype.UUID,
+	autopilotID pgtype.UUID,
+) (db.Issue, bool, error) {
+	if err := q.LockIssueDuplicateKey(ctx, openAutopilotLockKey(workspaceID, autopilotID)); err != nil {
+		return db.Issue{}, false, err
+	}
+	inactiveKeys, err := inactiveStatusKeys(ctx, q, workspaceID)
+	if err != nil {
+		return db.Issue{}, false, err
+	}
+	open, err := q.FindOpenAutopilotIssue(ctx, db.FindOpenAutopilotIssueParams{
+		WorkspaceID:        workspaceID,
+		OriginID:           autopilotID,
+		TerminalStatusKeys: inactiveKeys,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.Issue{}, false, nil
+		}
+		return db.Issue{}, false, err
+	}
+	return open, true, nil
+}
+
 func lockKey(workspaceID, projectID, parentIssueID pgtype.UUID, normalizedTitle string) string {
 	return strings.Join([]string{
 		"issue-active-duplicate",
@@ -152,5 +183,13 @@ func recentAutopilotLockKey(workspaceID, autopilotID, projectID pgtype.UUID, nor
 		util.UUIDToString(autopilotID),
 		util.UUIDToString(projectID),
 		normalizedTitle,
+	}, "|")
+}
+
+func openAutopilotLockKey(workspaceID, autopilotID pgtype.UUID) string {
+	return strings.Join([]string{
+		"autopilot-open",
+		util.UUIDToString(workspaceID),
+		util.UUIDToString(autopilotID),
 	}, "|")
 }

@@ -957,6 +957,18 @@ export function AutopilotDetailPage({ autopilotId }: { autopilotId: string }) {
                 </div>
               </div>
               {autopilot.execution_mode === "create_issue" && (
+                <div>
+                  <label className="text-caption text-muted-foreground">
+                    {t(($) => $.detail.field_skip_while_open)}
+                  </label>
+                  <div className="mt-1">
+                    {autopilot.pstack_skip_while_open === true
+                      ? t(($) => $.detail.skip_while_open_on)
+                      : t(($) => $.detail.skip_while_open_off)}
+                  </div>
+                </div>
+              )}
+              {autopilot.execution_mode === "create_issue" && (
                 <div className="col-span-2">
                   <label className="text-caption text-muted-foreground">
                     {t(($) => $.detail.field_subscribers)}
@@ -1076,6 +1088,7 @@ export function AutopilotDetailPage({ autopilotId }: { autopilotId: string }) {
               autopilot.subscribers
                 ?.filter((s) => s.user_type === "member")
                 .map((s) => s.user_id) ?? [],
+            skip_while_open: autopilot.pstack_skip_while_open === true,
           }}
           triggers={triggers}
           collaborators={collaborators}
