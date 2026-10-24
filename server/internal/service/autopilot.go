@@ -708,6 +708,14 @@ func (s *AutopilotService) dispatchCreateIssue(ctx context.Context, ap db.Autopi
 	}
 	projectID := currentAutopilot.ProjectID
 
+	if currentAutopilot.PstackSkipWhileOpen {
+		if open, found, err := issueguard.LockAndFindOpenAutopilotIssue(ctx, qtx, ap.WorkspaceID, ap.ID); err != nil {
+			return fmt.Errorf("open issue guard: %w", err)
+		} else if found {
+			return &errDispatchSkipped{reason: "open autopilot issue: " + util.UUIDToString(open.ID), code: dispatch.ReasonAlreadyActive}
+		}
+	}
+
 	if duplicate, found, err := issueguard.LockAndFindRecentAutopilotDuplicate(
 		ctx, qtx, ap.WorkspaceID, ap.ID, projectID, title, autopilotRecentDuplicateWindow,
 	); err != nil {

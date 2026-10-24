@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@multica/ui/components/ui/tooltip";
+import { Switch } from "@multica/ui/components/ui/switch";
 import {
   Popover,
   PopoverTrigger,
@@ -83,6 +84,7 @@ export interface AutopilotInitial {
   assignee_id: string;
   execution_mode: AutopilotExecutionMode;
   subscriber_user_ids?: string[];
+  skip_while_open?: boolean;
 }
 
 export type AutopilotDialogProps =
@@ -154,6 +156,9 @@ export function AutopilotDialog(props: AutopilotDialogProps) {
   );
   const [subscriberUserIds, setSubscriberUserIds] = useState<string[]>(
     initial.subscriber_user_ids ?? [],
+  );
+  const [skipWhileOpen, setSkipWhileOpen] = useState(
+    initial.skip_while_open === true,
   );
 
   // The schedule panel speaks for the autopilot's SCHEDULE trigger, not for
@@ -319,6 +324,7 @@ export function AutopilotDialog(props: AutopilotDialogProps) {
           assignee_type: assigneeType,
           assignee_id: assigneeId,
           execution_mode: executionMode,
+          pstack_skip_while_open: skipWhileOpen,
           subscribers: subscriberUserIds.map((user_id) => ({
             user_type: "member" as const,
             user_id,
@@ -372,6 +378,7 @@ export function AutopilotDialog(props: AutopilotDialogProps) {
           assignee_type: assigneeType,
           assignee_id: assigneeId,
           execution_mode: executionMode,
+          pstack_skip_while_open: skipWhileOpen,
           subscribers: subscriberUserIds.map((user_id) => ({
             user_type: "member" as const,
             user_id,
@@ -639,6 +646,13 @@ export function AutopilotDialog(props: AutopilotDialogProps) {
               <SubscribersSection
                 selectedUserIds={subscriberUserIds}
                 onChange={setSubscriberUserIds}
+              />
+            )}
+
+            {executionMode === "create_issue" && (
+              <SkipWhileOpenSection
+                checked={skipWhileOpen}
+                onChange={setSkipWhileOpen}
               />
             )}
 
@@ -958,6 +972,34 @@ function SubscribersSection({
   );
 }
 
+function SkipWhileOpenSection({
+  checked,
+  onChange,
+}: {
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const { t } = useT("autopilots");
+  const id = useId();
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <label htmlFor={id} className="block text-body font-medium">
+          {t(($) => $.dialog.skip_while_open)}
+        </label>
+        <p id={`${id}-hint`} className="text-micro text-muted-foreground">
+          {t(($) => $.dialog.skip_while_open_hint)}
+        </p>
+      </div>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onChange}
+        aria-describedby={`${id}-hint`}
+      />
+    </div>
+  );
+}
 
 // The panel cannot speak for two schedules, and a disabled editor showing the
 // first of them is still half a truth — the one the reader would set their

@@ -37,6 +37,8 @@ export interface Autopilot {
   pause_reason?: string | null;
   execution_mode: AutopilotExecutionMode;
   issue_title_template: string | null;
+  // Fork-only; absent on servers without it (treat as false).
+  pstack_skip_while_open?: boolean;
   created_by_type: string;
   created_by_id: string;
   last_run_at: string | null;
@@ -163,6 +165,7 @@ export interface CreateAutopilotRequest {
   assignee_id: string;
   execution_mode: AutopilotExecutionMode;
   issue_title_template?: string;
+  pstack_skip_while_open?: boolean;
   subscribers?: AutopilotSubscriberInput[];
 }
 
@@ -177,6 +180,7 @@ export interface UpdateAutopilotRequest {
   status?: AutopilotStatus;
   execution_mode?: AutopilotExecutionMode;
   issue_title_template?: string | null;
+  pstack_skip_while_open?: boolean;
   // When present, fully replaces the autopilot's subscriber template;
   // omit to leave it untouched.
   subscribers?: AutopilotSubscriberInput[];

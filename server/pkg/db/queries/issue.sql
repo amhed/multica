@@ -434,6 +434,17 @@ WHERE workspace_id = $1
 ORDER BY created_at ASC
 LIMIT 1;
 
+-- name: FindOpenAutopilotIssue :one
+-- Oldest unresolved issue an autopilot created, for pstack_skip_while_open.
+-- Negate only known terminal keys so an unknown legacy key stays open.
+SELECT i.* FROM issue i
+WHERE i.workspace_id = $1
+  AND i.origin_type = 'autopilot'
+  AND i.origin_id = $2
+  AND NOT (i.status = ANY(sqlc.arg('terminal_status_keys')::text[]))
+ORDER BY i.created_at ASC
+LIMIT 1;
+
 -- name: FindRecentAutopilotDuplicateIssue :one
 SELECT i.* FROM issue i
 WHERE i.workspace_id = $1
