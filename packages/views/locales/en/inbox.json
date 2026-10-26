@@ -7,8 +7,7 @@
     "mark_all_read": "Mark all as read",
     "archive_all": "Archive all",
     "archive_all_read": "Archive all read",
-    "archive_completed": "Archive completed",
-    "actions_aria": "Inbox actions"
+    "archive_completed": "Archive completed"
   },
   "filters": {
     "tooltip": "Filter inbox",

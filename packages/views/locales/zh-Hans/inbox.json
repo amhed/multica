@@ -7,8 +7,7 @@
     "mark_all_read": "全部标为已读",
     "archive_all": "归档全部",
     "archive_all_read": "归档全部已读",
-    "archive_completed": "归档已完成",
-    "actions_aria": "收件箱操作"
+    "archive_completed": "归档已完成"
   },
   "filters": {
     "tooltip": "筛选收件箱",
