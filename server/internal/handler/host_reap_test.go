@@ -253,7 +253,7 @@ func TestHeartbeatClaimsHostReap(t *testing.T) {
 		t.Skip("database not available")
 	}
 	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
-	daemonID := "heartbeat-claims-host-reap-daemon"
+	daemonID := runtimeDaemonID(t, runtimeID)
 
 	h := *testHandler
 	h.HostReapStore = NewInMemoryHostReapStore()
@@ -299,7 +299,7 @@ func TestReportHostReapResultCompletes(t *testing.T) {
 		t.Skip("database not available")
 	}
 	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
-	daemonID := "report-host-reap-completes-daemon"
+	daemonID := runtimeDaemonID(t, runtimeID)
 
 	h := *testHandler
 	h.HostReapStore = NewInMemoryHostReapStore()
@@ -337,7 +337,7 @@ func TestReportHostReapResultStaleIgnored(t *testing.T) {
 		t.Skip("database not available")
 	}
 	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
-	daemonID := "report-host-reap-stale-daemon"
+	daemonID := runtimeDaemonID(t, runtimeID)
 
 	h := *testHandler
 	h.HostReapStore = NewInMemoryHostReapStore()
@@ -389,4 +389,16 @@ func TestInitiateHostReapDaemonOffline(t *testing.T) {
 		map[string]string{"mode": "dryrun"}), "daemonId", daemonID)
 
 	testutil.Call(t, h.InitiateHostReap, req).Want(http.StatusServiceUnavailable)
+}
+
+// runtimeDaemonID returns the daemon_id stored on a runtime, so daemon-token
+// requests pass the runtime binding check (token daemon_id must match).
+func runtimeDaemonID(t *testing.T, runtimeID string) string {
+	t.Helper()
+	var daemonID string
+	if err := testPool.QueryRow(context.Background(),
+		`SELECT daemon_id FROM agent_runtime WHERE id = $1`, runtimeID).Scan(&daemonID); err != nil {
+		t.Fatalf("load runtime daemon_id: %v", err)
+	}
+	return daemonID
 }

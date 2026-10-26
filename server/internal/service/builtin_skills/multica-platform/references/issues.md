@@ -8,7 +8,6 @@ Product contracts the runtime brief does not fully encode.
 - [Status changes have server side effects](#status-changes-have-server-side-effects)
 - [Who else is running right now](#who-else-is-running-right-now)
 - [Sub-issues: todo starts work now, backlog parks it](#sub-issues-todo-starts-work-now-backlog-parks-it)
-- [Inbox hierarchy](#inbox-hierarchy)
 - [Charts and files in a comment](#charts-and-files-in-a-comment)
 - [Incorrect to correct](#incorrect-to-correct)
 
@@ -436,14 +435,6 @@ multica issue create --title "Step 1" --parent <issue-id> --assignee <agent> --s
 multica issue create --title "Step 2" --parent <issue-id> --assignee <agent> --stage 2 --status backlog
 multica issue create --title "Step 3" --parent <issue-id> --assignee <agent> --stage 3 --status backlog
 ```
-
-## Inbox hierarchy
-
-The [Inbox guide](https://multica.ai/docs/inbox#related-issues-stay-together) owns the member-facing grouping, filtering, navigation, and read/archive behavior.
-
-Inbox list responses may include an optional `issue_ancestors` (immediate parent to root, each with `id`, `title`, and `status`); clients must accept responses without it.
-Ancestors belong to the same workspace and provide context only; read/archive actions apply to individual notifications.
-The lookup batches issues and stops at ancestry cycles.
 
 ## Issue wakeups
 
