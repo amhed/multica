@@ -2,7 +2,7 @@
 
 import type { InboxIssueAncestor } from "@multica/core/types";
 import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
-import { GitBranch } from "lucide-react";
+import { GitBranch } from "@multica/ui/icons";
 import { StatusIcon } from "../../issues/components";
 import { useStatusLabel } from "../../issues/utils/status-label";
 import { useT } from "../../i18n";

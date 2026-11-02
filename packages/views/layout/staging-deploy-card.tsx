@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, CircleDashed, CircleX, ExternalLink, Loader2 } from "lucide-react";
+import { CircleCheck, CircleDashed, ExternalLink, Loader2, XCircle } from "@multica/ui/icons";
 import type { DeployEntry, DeployRun } from "@multica/core/api/schemas";
 import { deployOptions } from "@multica/core/deploy/queries";
 import { useWorkspacePaths, useWorkspaceSlug } from "@multica/core/paths";
@@ -10,7 +10,7 @@ import { AppLink } from "../navigation";
 import { useT, useTimeAgo } from "../i18n";
 
 /**
- * Sidebar footer strip showing the latest staging deploy of each tracked repo.
+ * Work panel footer strip showing the latest staging deploy of each tracked repo.
  *
  * Fed by the host-side collector snapshot relayed at GET /api/deploy (a cron
  * script wrapping `gh api`). Renders nothing when the server has no snapshot
@@ -29,7 +29,7 @@ export function StagingDeployCard() {
   if (deploys.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2 px-2 pb-2 text-caption">
+    <div className="flex shrink-0 flex-col gap-2 border-t px-3 py-2 text-caption">
       {deploys.map((deploy) => (
         <DeployRow
           key={deploy.repo}
@@ -115,7 +115,7 @@ function describeRun(run: DeployRun, t: Translate) {
       case "failure":
       case "timed_out":
       case "startup_failure":
-        return { Icon: CircleX, className: "text-destructive", label: t(($) => $.sidebar.deploy.failed) };
+        return { Icon: XCircle, className: "text-destructive", label: t(($) => $.sidebar.deploy.failed) };
       case "cancelled":
         return { Icon: CircleDashed, className: "text-muted-foreground", label: t(($) => $.sidebar.deploy.cancelled) };
       default:

@@ -14,7 +14,7 @@
  * Icon values are *names*, not React components, so this module stays
  * React-free and safe inside `@multica/core`. The name → component registry
  * lives in `packages/views/layout/route-icon-components.tsx`; its
- * `Record<RouteIconName, LucideIcon>` type makes a missing component a compile
+ * `Record<RouteIconName, IconComponent>` type makes a missing component a compile
  * error.
  */
 
@@ -25,9 +25,10 @@ export type RouteIconName =
   | "CircleUser"
   | "ListTodo"
   | "FolderKanban"
+  | "Layers"
   | "Zap"
   | "Bot"
-  | "Activity"
+  | "LayoutGrid"
   | "Users"
   | "BarChart3"
   | "Monitor"
@@ -50,6 +51,7 @@ export type NavLabelKey =
   | "my_issues"
   | "issues"
   | "projects"
+  | "views"
   | "autopilots"
   | "agents"
   | "active"
@@ -66,6 +68,7 @@ export type WorkspacePageKey =
   | "myIssues"
   | "issues"
   | "projects"
+  | "views"
   | "autopilots"
   | "agents"
   | "active"
@@ -94,9 +97,10 @@ export const WORKSPACE_PAGES: Record<WorkspacePageKey, WorkspacePage> = {
   myIssues: { segment: "my-issues", icon: "CircleUser", navKey: "my_issues" },
   issues: { segment: "issues", icon: "ListTodo", navKey: "issues" },
   projects: { segment: "projects", icon: "FolderKanban", navKey: "projects" },
+  views: { segment: "views", icon: "Layers", navKey: "views" },
   autopilots: { segment: "autopilots", icon: "Zap", navKey: "autopilots" },
   agents: { segment: "agents", icon: "Bot", navKey: "agents" },
-  active: { segment: "active", icon: "Activity", navKey: "active" },
+  active: { segment: "active", icon: "LayoutGrid", navKey: "active" },
   squads: { segment: "squads", icon: "Users", navKey: "squads" },
   usage: { segment: "usage", icon: "BarChart3", navKey: "usage" },
   runtimes: { segment: "runtimes", icon: "Monitor", navKey: "runtimes" },

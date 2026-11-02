@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Activity } from "lucide-react";
+import { LayoutGrid } from "@multica/ui/icons";
 import { cn } from "@multica/ui/lib/utils";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
-import { LIST_GRID_BOTTOM_CLEARANCE } from "@multica/ui/components/ui/list-grid";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { agentTaskSnapshotOptions, useCancelTask } from "@multica/core/agents";
 import { taskMessagesOptions } from "@multica/core/chat/queries";
@@ -136,12 +135,11 @@ export function ActiveBoardPage() {
   return (
     <div className="flex h-full flex-col">
       <CollectionPageHeader
-        icon={Activity}
+        icon={LayoutGrid}
         title={t(($) => $.active_board.title)}
-        count={cards.length}
-        description={description}
       />
       <div className={cn("min-h-0 flex-1 overflow-y-auto pt-4", PAGE_GUTTER)}>
+        {description && <p className="mb-3 text-caption text-muted-foreground">{description}</p>}
         <div className="mb-4">
           <HealthCard wsId={wsId} />
         </div>
@@ -154,7 +152,7 @@ export function ActiveBoardPage() {
         ) : cards.length === 0 ? (
           <p className="pt-16 text-center text-caption text-muted-foreground">{t(($) => $.active_board.empty)}</p>
         ) : (
-          <div className={GRID_CLASS} style={{ paddingBottom: LIST_GRID_BOTTOM_CLEARANCE }}>
+          <div className={cn(GRID_CLASS, "pb-16")}>
             {cards.map((card) => (
               <ActiveTaskCard
                 key={card.task.id}
