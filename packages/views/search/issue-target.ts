@@ -2,10 +2,11 @@
 
 import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import type { Issue, UpdateIssueRequest } from "@multica/core/types";
+import type { Issue, IssueWorkflow, UpdateIssueRequest } from "@multica/core/types";
 import { errorCode } from "@multica/core/api";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
+import { stepHandsOff, workflowStep } from "@multica/core/issue-workflows";
 import { useBatchUpdateIssues, useUpdateIssue } from "@multica/core/issues/mutations";
 import { useModalStore } from "@multica/core/modals";
 import { runConfirmIntent } from "../issues/actions/run-confirm-gate";
@@ -27,19 +28,19 @@ export function targetIssues(target: IssueTarget): Issue[] {
  * would be dropped with the component and a rejected write would roll back
  * silently.
  */
-export function useIssueTargetWriter(target: IssueTarget) {
+export function useIssueTargetWriter(target: IssueTarget | null) {
   const { t } = useT("issues");
   const wsId = useWorkspaceId();
   const { entryOf } = useIssueStatuses(wsId);
-  const single = target.kind === "single" ? target.issue : null;
+  const single = target?.kind === "single" ? target.issue : null;
   const updateIssue = useUpdateIssue();
   const batchUpdate = useBatchUpdateIssues();
   const openModal = useModalStore((s) => s.open);
-  const issues = useMemo(() => targetIssues(target), [target]);
+  const issues = useMemo(() => (target ? targetIssues(target) : []), [target]);
 
   const applyBatch = useCallback(
     async (updates: Partial<UpdateIssueRequest>) => {
-      if (target.kind !== "batch") return;
+      if (target?.kind !== "batch") return;
       const ids = issues.map((issue) => issue.id);
       const count = ids.length;
       try {
@@ -55,7 +56,7 @@ export function useIssueTargetWriter(target: IssueTarget) {
         );
       }
     },
-    [batchUpdate, issues, t, target.kind],
+    [batchUpdate, issues, t, target?.kind],
   );
 
   const applySingle = useCallback(
@@ -95,7 +96,7 @@ export function useIssueTargetWriter(target: IssueTarget) {
         assignee_type: assigneeType,
         assignee_id: assigneeId,
       };
-      if (target.kind === "batch" && (assigneeType === "agent" || assigneeType === "squad") && assigneeId) {
+      if (target?.kind === "batch" && (assigneeType === "agent" || assigneeType === "squad") && assigneeId) {
         // Same rule as the batch toolbar: assigning agent work across a
         // selection previews the run fan-out, unless everything is parked in
         // Backlog and nothing would start.
@@ -112,8 +113,40 @@ export function useIssueTargetWriter(target: IssueTarget) {
       }
       apply(updates);
     },
-    [apply, issues, openModal, target.kind],
+    [apply, issues, openModal, target?.kind],
   );
 
   return { issues, apply, assign };
+}
+
+/**
+ * Status writes routed the way the status picker routes them: moving a single
+ * issue into a workflow step that hands it off opens the hand-off dialog
+ * instead of writing.
+ */
+export function useIssueStatusWriter(target: IssueTarget | null, workflow: IssueWorkflow | null) {
+  const writer = useIssueTargetWriter(target);
+  const openModal = useModalStore((s) => s.open);
+  const single = target?.kind === "single" ? target.issue : null;
+  const { apply } = writer;
+
+  return useCallback(
+    (status: string) => {
+      if (
+        single &&
+        workflow &&
+        status !== single.status &&
+        stepHandsOff(workflowStep(workflow, status))
+      ) {
+        openModal("issue-workflow-handoff", {
+          issueId: single.id,
+          identifier: single.identifier,
+          status,
+        });
+        return;
+      }
+      apply({ status });
+    },
+    [apply, openModal, single, workflow],
+  );
 }

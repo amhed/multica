@@ -45,6 +45,7 @@ import { useT } from "../../i18n";
 import { usePalette } from "../palette-context";
 import type { IssueTarget, PaletteCommand, PaletteCommandGroup } from "../types";
 import { ContextHeading } from "./context-heading";
+import { useIssueStatusCommands } from "./status-commands";
 
 const ACTIVE_TASK_STATUSES = new Set<AgentTask["status"]>([
   "queued",
@@ -85,6 +86,7 @@ export function useIssueCommandGroup(
   });
   const toggleSubscriber = useToggleIssueSubscriber(singleId);
   const retryRun = useRetryIssueRun(singleId);
+  const statusCommands = useIssueStatusCommands(single);
 
   return useMemo(() => {
     if (!target) return null;
@@ -124,6 +126,7 @@ export function useIssueCommandGroup(
     ];
 
     if (single) {
+      commands.push(...statusCommands);
       if (activeQuickActions.length > 0) {
         commands.push({
           id: "issue-quick-action",
@@ -366,6 +369,7 @@ export function useIssueCommandGroup(
     queryClient,
     retryRun,
     single,
+    statusCommands,
     subscribers,
     t,
     tIssues,

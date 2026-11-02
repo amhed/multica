@@ -46,6 +46,7 @@
   },
   "issue": {
     "change_status": "ステータスを変更...",
+    "mark_as": "{{status}}にする",
     "assign_to": "担当者を設定...",
     "set_priority": "優先度を設定...",
     "run_quick_action": "クイックアクションを実行...",

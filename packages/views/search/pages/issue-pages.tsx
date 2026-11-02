@@ -9,15 +9,9 @@ import { dispatchReasonCode } from "@multica/core/api";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { PRIORITY_DISPLAY_ORDER } from "@multica/core/issues/config";
 import { addDaysDateOnly, todayDateOnly } from "@multica/core/issues/date";
-import {
-  sharedWorkflowStatusKeys,
-  stepHandsOff,
-  useIssueWorkflows,
-  workflowStep,
-} from "@multica/core/issue-workflows";
+import { sharedWorkflowStatusKeys, useIssueWorkflows } from "@multica/core/issue-workflows";
 import { issueLabelsOptions, labelListOptions } from "@multica/core/labels/queries";
 import { useAttachLabelToIssue, useDetachLabel } from "@multica/core/labels/mutations";
-import { useModalStore } from "@multica/core/modals";
 import { projectListOptions } from "@multica/core/projects/queries";
 import { quickActionListOptions, useRunQuickAction } from "@multica/core/quick-actions";
 import type { Issue, IssuePriority, Label } from "@multica/core/types";
@@ -28,7 +22,7 @@ import { useIssueStatusOptions } from "../../issues/utils/status-options";
 import { ProjectIcon } from "../../projects/components/project-icon";
 import { useT } from "../../i18n";
 import { HighlightText } from "../highlight-text";
-import { useIssueTargetWriter, targetIssues } from "../issue-target";
+import { useIssueStatusWriter, useIssueTargetWriter, targetIssues } from "../issue-target";
 import { scoreRow, scoreText } from "../matching";
 import { usePalette } from "../palette-context";
 import { PaletteGroup, ROW_CLASS, ROW_ICON_CLASS, RowCheck, RowHint } from "../rows";
@@ -64,9 +58,7 @@ export function IssueStatusPage({ target, query }: { target: IssueTarget; query:
   const { t } = useT("search");
   const wsId = useWorkspaceId();
   const palette = usePalette();
-  const openModal = useModalStore((s) => s.open);
-  const writer = useIssueTargetWriter(target);
-  const issues = writer.issues;
+  const issues = useMemo(() => targetIssues(target), [target]);
   const single = target.kind === "single" ? target.issue : null;
   const sharedProjectId = single ? single.project_id : sharedProjectIdOf(issues);
   const { workflows } = useIssueWorkflows(wsId);
@@ -94,22 +86,10 @@ export function IssueStatusPage({ target, query }: { target: IssueTarget; query:
     (o) => [o.key.replace(/_/g, " ")],
   );
 
+  const setStatus = useIssueStatusWriter(target, workflow);
   const select = (status: string) => {
     palette.close();
-    if (
-      single &&
-      workflow &&
-      status !== single.status &&
-      stepHandsOff(workflowStep(workflow, status))
-    ) {
-      openModal("issue-workflow-handoff", {
-        issueId: single.id,
-        identifier: single.identifier,
-        status,
-      });
-      return;
-    }
-    writer.apply({ status });
+    setStatus(status);
   };
 
   return (
