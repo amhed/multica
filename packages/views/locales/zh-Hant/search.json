@@ -46,6 +46,7 @@
   },
   "issue": {
     "change_status": "變更狀態...",
+    "mark_as": "標記為{{status}}",
     "assign_to": "指派給...",
     "set_priority": "設定優先級...",
     "run_quick_action": "執行快捷操作...",

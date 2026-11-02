@@ -47,6 +47,7 @@
   },
   "issue": {
     "change_status": "Changer le statut...",
+    "mark_as": "Marquer comme {{status}}",
     "assign_to": "Assigner à...",
     "set_priority": "Définir la priorité...",
     "run_quick_action": "Lancer une action rapide...",

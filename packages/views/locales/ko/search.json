@@ -46,6 +46,7 @@
   },
   "issue": {
     "change_status": "상태 변경...",
+    "mark_as": "{{status}}(으)로 변경",
     "assign_to": "담당자 지정...",
     "set_priority": "우선순위 설정...",
     "run_quick_action": "빠른 작업 실행...",

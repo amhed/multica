@@ -787,6 +787,40 @@ describe("SearchCommand", () => {
       expect(screen.getByRole("navigation", { name: "Current menu" })).toHaveTextContent("MUL-42Change status");
     });
 
+    it("marks the issue with a typed status in one step", async () => {
+      const user = userEvent.setup();
+      renderSearch();
+      await user.type(input(), "done");
+
+      await waitFor(() => expect(renderedValues()[0]).toBe("command:context-issue:issue-mark-status:done"));
+      expect(await rowText("Mark as Done")).toBeInTheDocument();
+      fireEvent.keyDown(input(), { key: "Enter" });
+
+      await waitFor(() => expect(api("updateIssue")).toHaveBeenCalledWith("issue-1", { status: "done" }));
+      expect(useSearchStore.getState().open).toBe(false);
+    });
+
+    it("finds a status command by its synonyms", async () => {
+      const user = userEvent.setup();
+      renderSearch();
+      await user.type(input(), "wip");
+
+      await waitFor(() => expect(renderedValues()[0]).toBe("command:context-issue:issue-mark-status:in_progress"));
+    });
+
+    it("keeps one-step status commands out of the empty state and skips the current status", async () => {
+      const user = userEvent.setup();
+      renderSearch();
+      expect(renderedValues().some((v) => v.includes("issue-mark-status"))).toBe(false);
+
+      await user.type(input(), "mark");
+      await waitFor(() => expect(renderedValues()).toContain("command:context-issue:issue-mark-status:done"));
+      expect(renderedValues()).not.toContain("command:context-issue:issue-mark-status:todo");
+      // The status keeps its own color instead of the row's muted icon tint.
+      const doneRow = document.querySelector('[data-value="command:context-issue:issue-mark-status:done"]');
+      expect(doneRow?.querySelector("svg")?.getAttribute("class") ?? "").not.toContain("text-muted-foreground");
+    });
+
     it.each(["s", "a", "p"])("types '%s' into the search instead of opening a submenu", async (key) => {
       const user = userEvent.setup();
       renderSearch();
